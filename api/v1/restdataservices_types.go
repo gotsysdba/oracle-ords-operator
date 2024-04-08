@@ -20,22 +20,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // RestDataServicesSpec defines the desired state of RestDataServices
 type RestDataServicesSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Image              OracleRestDataServiceImage               `json:"image,omitempty"`
 
-	// Foo is an example field of RestDataServices. Edit restdataservices_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +k8s:openapi-gen=true
+	// +kubebuilder:validation:Minimum=1
+	Replicas int32 `json:"replicas,omitempty"`
+}
+
+// OracleRestDataServiceImage defines the Image source and pullSecrets for POD
+type OracleRestDataServiceImage struct {
+	Version     string `json:"version,omitempty"`
+	PullFrom    string `json:"pullFrom"`
+	PullSecrets string `json:"pullSecrets,omitempty"`
 }
 
 // RestDataServicesStatus defines the observed state of RestDataServices
 type RestDataServicesStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Image OracleRestDataServiceImage `json:"image,omitempty"`
+	Replicas int32 `json:"replicas,omitempty"`
 }
 
 //+kubebuilder:object:root=true
