@@ -5,9 +5,36 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - database.oracle.com
   resources:
-  - restdataservices
+  - restdataservicess
   verbs:
   - create
   - delete
@@ -19,13 +46,13 @@ rules:
 - apiGroups:
   - database.oracle.com
   resources:
-  - restdataservices/finalizers
+  - restdataservicess/finalizers
   verbs:
   - update
 - apiGroups:
   - database.oracle.com
   resources:
-  - restdataservices/status
+  - restdataservicess/status
   verbs:
   - get
   - patch

@@ -22,24 +22,23 @@ import (
 
 // RestDataServicesSpec defines the desired state of RestDataServices
 type RestDataServicesSpec struct {
-	Image              OracleRestDataServiceImage               `json:"image,omitempty"`
-
+	Image              string               `json:"image,omitempty"`
+	PullPolicy  string `json:"pullSecrets,omitempty"`
+	PullSecrets string `json:"pullSecrets,omitempty"`
+	Port int32 `json:"port,omitempty"`
 	// +k8s:openapi-gen=true
 	// +kubebuilder:validation:Minimum=1
 	Replicas int32 `json:"replicas,omitempty"`
 }
 
-// OracleRestDataServiceImage defines the Image source and pullSecrets for POD
-type OracleRestDataServiceImage struct {
-	Version     string `json:"version,omitempty"`
-	PullFrom    string `json:"pullFrom"`
-	PullSecrets string `json:"pullSecrets,omitempty"`
-}
-
 // RestDataServicesStatus defines the observed state of RestDataServices
 type RestDataServicesStatus struct {
-	Image OracleRestDataServiceImage `json:"image,omitempty"`
+	Image string `json:"image,omitempty"`
 	Replicas int32 `json:"replicas,omitempty"`
+
+	// Conditions store the status conditions of the ORDS instances
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
