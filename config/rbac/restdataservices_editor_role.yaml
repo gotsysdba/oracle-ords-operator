@@ -1,0 +1,31 @@
+# permissions for end users to edit restdataservices.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: restdataservices-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: oracle-ords-operator
+    app.kubernetes.io/part-of: oracle-ords-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: restdataservices-editor-role
+rules:
+- apiGroups:
+  - database.oracle.com
+  resources:
+  - restdataservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - database.oracle.com
+  resources:
+  - restdataservices/status
+  verbs:
+  - get

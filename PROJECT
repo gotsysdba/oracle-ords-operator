@@ -10,4 +10,14 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: oracle-ords-operator
 repo: github.com/gotsysdba/oracle-ords-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: oracle.com
+  group: database
+  kind: RestDataServices
+  path: github.com/gotsysdba/oracle-ords-operator/api/v1
+  version: v1
 version: "3"

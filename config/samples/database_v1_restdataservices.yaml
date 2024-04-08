@@ -1,0 +1,12 @@
+apiVersion: database.oracle.com/v1
+kind: RestDataServices
+metadata:
+  labels:
+    app.kubernetes.io/name: restdataservices
+    app.kubernetes.io/instance: restdataservices-sample
+    app.kubernetes.io/part-of: oracle-ords-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: oracle-ords-operator
+  name: restdataservices-sample
+spec:
+  # TODO(user): Add fields here
