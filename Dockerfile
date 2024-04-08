@@ -1,5 +1,8 @@
 # Build the manager binary
-FROM golang:1.20 AS builder
+FROM container-registry.oracle.com/os/oraclelinux:9-slim AS builder
+RUN \
+    microdnf install golang; \
+    microdnf update
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -23,11 +26,10 @@ COPY internal/controller/ internal/controller/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM container-registry.oracle.com/os/oraclelinux:9-slim
 WORKDIR /
 COPY --from=builder /workspace/manager .
-USER 65532:65532
+RUN useradd -u 1001 nonroot
+USER 1001:1001
 
 ENTRYPOINT ["/manager"]
