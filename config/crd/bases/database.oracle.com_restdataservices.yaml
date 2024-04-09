@@ -51,6 +51,8 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
+              workloadType:
+                type: string
             required:
             - port
             type: object
