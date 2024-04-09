@@ -17,15 +17,19 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // RestDataServicesSpec defines the desired state of RestDataServices
 type RestDataServicesSpec struct {
-	Image              string               `json:"image,omitempty"`
-	PullPolicy  string `json:"pullSecrets,omitempty"`
-	PullSecrets string `json:"pullSecrets,omitempty"`
-	Port int32 `json:"port,omitempty"`
+	WorkloadType     string            `json:"workloadType,omitempty"`
+	Image            string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
+	// Number of port to expose on the pod's IP address.
+	// This must be a valid port number, 0 < x < 65536.
+	Port int32 `json:"port" protobuf:"varint,3,opt,name=port"`
 	// +k8s:openapi-gen=true
 	// +kubebuilder:validation:Minimum=1
 	Replicas int32 `json:"replicas,omitempty"`
@@ -33,8 +37,8 @@ type RestDataServicesSpec struct {
 
 // RestDataServicesStatus defines the observed state of RestDataServices
 type RestDataServicesStatus struct {
-	Image string `json:"image,omitempty"`
-	Replicas int32 `json:"replicas,omitempty"`
+	Image    string `json:"image,omitempty"`
+	Replicas int32  `json:"replicas,omitempty"`
 
 	// Conditions store the status conditions of the ORDS instances
 	// +operator-sdk:csv:customresourcedefinitions:type=status

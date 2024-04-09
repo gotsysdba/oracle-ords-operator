@@ -7,6 +7,10 @@ metadata:
     app.kubernetes.io/part-of: oracle-ords-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: oracle-ords-operator
-  name: restdataservices-sample
+  name: restdataservices-sample-2
 spec:
-  # TODO(user): Add fields here
+  workload: Deployment
+  replicas: 2
+  image: container-registry.oracle.com/database/ords:latest
+  port: 8080
+

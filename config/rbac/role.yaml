@@ -34,7 +34,7 @@ rules:
 - apiGroups:
   - database.oracle.com
   resources:
-  - restdataservicess
+  - restdataservices
   verbs:
   - create
   - delete
@@ -46,13 +46,13 @@ rules:
 - apiGroups:
   - database.oracle.com
   resources:
-  - restdataservicess/finalizers
+  - restdataservices/finalizers
   verbs:
   - update
 - apiGroups:
   - database.oracle.com
   resources:
-  - restdataservicess/status
+  - restdataservices/status
   verbs:
   - get
   - patch

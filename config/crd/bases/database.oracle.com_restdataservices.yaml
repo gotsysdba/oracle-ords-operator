@@ -36,15 +36,23 @@ spec:
             properties:
               image:
                 type: string
+              imagePullPolicy:
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
+                type: string
+              imagePullSecrets:
+                type: string
               port:
+                description: Number of port to expose on the pod's IP address. This
+                  must be a valid port number, 0 < x < 65536.
                 format: int32
                 type: integer
-              pullSecrets:
-                type: string
               replicas:
                 format: int32
                 minimum: 1
                 type: integer
+            required:
+            - port
             type: object
           status:
             description: RestDataServicesStatus defines the observed state of RestDataServices
