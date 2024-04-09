@@ -54,7 +54,6 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Check if there is an ORDS resource; if not nothing to reconcile
 	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
 		if apierrors.IsNotFound(err) {
-			logr.Info("No RestDataServices resources found")
 			return ctrl.Result{}, nil
 		}
 		// The CR is not defined... something has gone horribly wrong!!
@@ -151,23 +150,23 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 			Labels:    ls,
 		},
 		Data: map[string]string{
-			"settings.xml": `<?xml version="1.0" encoding="UTF-8"?>
-							<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
-							<properties>
-							<comment>Default created by Controller</comment>
-							<entry key="database.api.enabled">false</entry>
-							<entry key="debug.printDebugToScreen">false</entry>
-							<entry key="feature.sdw">false</entry>
-							<entry key="jdbc.InitialLimit">10</entry>
-							<entry key="jdbc.MaxLimit">100</entry>
-							<entry key="logr.procedure">false</entry>
-							<entry key="misc.defaultPage">apex</entry>
-							<entry key="restEnabledSql.active">false</entry>
-							<entry key="security.httpsHeaderCheck">X-Forwarded-Proto: https</entry>
-							<entry key="standalone.context.path">/</entry>
-							<entry key="standalone.http.port">8080</entry>
-							<entry key="standalone.static.context.path">/i</entry>
-							</properties>`,
+			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
+				`<properties>` + "\n" +
+				`  <comment>Default created by Controller</comment>` + "\n" +
+				`  <entry key="database.api.enabled">false</entry>` + "\n" +
+				`  <entry key="debug.printDebugToScreen">false</entry>` + "\n" +
+				`  <entry key="feature.sdw">false</entry>` + "\n" +
+				`  <entry key="jdbc.InitialLimit">10</entry>` + "\n" +
+				`  <entry key="jdbc.MaxLimit">100</entry>` + "\n" +
+				`  <entry key="logr.procedure">false</entry>` + "\n" +
+				`  <entry key="misc.defaultPage">apex</entry>` + "\n" +
+				`  <entry key="restEnabledSql.active">false</entry>` + "\n" +
+				`  <entry key="security.httpsHeaderCheck">X-Forwarded-Proto: https</entry>` + "\n" +
+				`  <entry key="standalone.context.path">/</entry>` + "\n" +
+				fmt.Sprintf(`  <entry key="standalone.http.port">%d</entry>`, ords.Spec.Port) + "\n" +
+				`  <entry key="standalone.static.context.path">/i</entry>` + "\n" +
+				`</properties>`),
 		},
 	}
 
