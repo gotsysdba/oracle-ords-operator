@@ -26,171 +26,171 @@ import (
 
 // RestDataServicesSpec defines the desired state of RestDataServices
 type RestDataServicesSpec struct {
-	WorkloadType     string            `json:"workloadType,omitempty"`
-	Image            string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	WorkloadType string `json:"workloadType,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	Replicas         int32             `json:"replicas,omitempty"`
+	Image            string            `json:"image" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
-	// Number of port to expose on the pod's IP address.
-	// This must be a valid port number, 0 < x < 65536.
-	Port int32 `json:"port" protobuf:"varint,3,opt,name=port"`
+	// Contains settings that are configured across the entire ORDS instance.
+	GlobalSettings GlobalSettings `json:"globalSettings"`
 	// +k8s:openapi-gen=true
-	// +kubebuilder:validation:Minimum=1
-	Replicas int32 `json:"replicas,omitempty"`
+
 }
 
-type GlobalConfig struct {
+type GlobalSettings struct {
 	// Specifies the duration after a GraphQL schema is not accessed from the cache that it expires.
-	// Default is 8h.
-	CacheMetadataGraphqlExpireAfterAccess time.Duration `json:"cachemetadatagraphqlexpireafteraccess,omitempty"`
+	// +kubebuilder:default=8h
+	CacheMetadataGraphqlExpireAfterAccess time.Duration `json:"cacheMetadataGraphqlExpireAfterAccess,omitempty" default:"8h"`
 
 	// Specifies the setting to enable or disable JWKS caching.
-	// Default is true
-	CacheMetadataJwksEnabled bool `json:"cachemetadatajwksenabled,omitempty"`
+	// +kubebuilder:default=true
+	CacheMetadataJwksEnabled bool `json:"cacheMetadataJwksEnabled,omitempty" default:"true"`
 
 	// Specifies the initial capacity of the JWKS cache.
-	CacheMetadataJwksInitialCapacity int32 `json:"cachemetadatajwksinitialcapacity,omitempty"`
+	CacheMetadataJwksInitialCapacity int32 `json:"cacheMetadataJwksInitialCapacity,omitempty"`
 
 	// Specifies the maximum capacity of the JWKS cache.
-	CacheMetadataJwksMaximumSize int32 `json:"cachemetadatajwksmaximumsize,omitempty"`
+	CacheMetadataJwksMaximumSize int32 `json:"cacheMetadataJwksMaximumSize,omitempty"`
 
 	// Specifies the duration after a JWK is not accessed from the cache that it expires.
 	// By default this is disabled.
-	CacheMetadataJwksExpireAfterAccess time.Duration `json:"cachemetadatajwksexpireafteraccess,omitempty"`
+	CacheMetadataJwksExpireAfterAccess time.Duration `json:"cacheMetadataJwksExpireAfterAccess,omitempty"`
 
 	// Specifies the duration after a JWK is cached, that is, it expires and has to be loaded again.
-	// Default is 5 minutes.
-	CacheMetadataJwksExpireAfterWrite time.Duration `json:"cachemetadatajwksexpireafterwrite,omitempty"`
+	// +kubebuilder:default=5m
+	CacheMetadataJwksExpireAfterWrite time.Duration `json:"cacheMetadataJwksExpireAfterWrite,omitempty"`
 
 	// Specifies to disable the Database API administration related services.
 	// Only applicable when Database API is enabled.
-	DatabaseApiManagementServicesDisabled bool `json:"databaseapimanagementservicesdisabled,omitempty"`
+	DatabaseApiManagementServicesDisabled bool `json:"databaseApiManagementServicesDisabled,omitempty"`
 
 	// Specifies how long to wait before retrying an invalid pool.
 	// Default: 15m
-	DbInvalidPoolTimeout time.Duration `json:"dbinvalidpooltimeout,omitempty"`
+	DbInvalidPoolTimeout time.Duration `json:"dbInvalidPoolTimeout,omitempty"`
 
 	// Specifies the maximum join nesting depth limit for GraphQL queries.
 	// Defaults to 5.
-	FeatureGrahpqlMaxNestingDepth int32 `json:"featuregrahpqlmaxnestingdepth,omitempty"`
+	FeatureGrahpqlMaxNestingDepth int32 `json:"featureGrahpqlMaxNestingDepth,omitempty"`
 
 	// Specifies the name of the HTTP request header that uniquely identifies the request end to end as
 	// it passes through the various layers of the application stack.
 	// In Oracle this header is commonly referred to as the ECID (Entity Context ID).
-	RequestTraceHeaderName string `json:"requesttraceheadername,omitempty"`
+	RequestTraceHeaderName string `json:"requestTraceHeaderName,omitempty"`
 
 	// Specifies the maximum number of unsuccessful password attempts allowed.
 	// Enabled by setting a positive integer value.
 	// Defaults to -1.
-	SecurityCredentialsAttempts int32 `json:"securitycredentialsattempts,omitempty"`
+	SecurityCredentialsAttempts int32 `json:"securityCredentialsAttempts,omitempty"`
 
 	// Specifies the file where credentials are stored.
-	SecurityCredentialsFile string `json:"securitycredentialsfile,omitempty"`
+	SecurityCredentialsFile string `json:"securityCredentialsFile,omitempty"`
 
 	// Specifies the period to lock the account that has exceeded maximum attempts.
 	// Defaults to 10m (10 minutes)
-	SecurityCredentialsLockTime time.Duration `json:"securitycredentialslocktime,omitempty"`
+	SecurityCredentialsLockTime time.Duration `json:"securityCredentialsLockTime,omitempty"`
 
 	// Specifies the path to the folder to store HTTP request access logs.
 	// If not specified, then no access log is generated.
-	StandaloneAccessLog string `json:"standaloneaccesslog,omitempty"`
+	StandaloneAccessLog string `json:"standaloneAccessLog,omitempty"`
 
 	// Specifies the comma separated list of host names or IP addresses to identify a specific network
 	// interface on which to listen.
 	// Default 0.0.0.0
-	StandaloneBinds net.IP `json:"standalonebinds,omitempty"`
+	StandaloneBinds net.IP `json:"standaloneBinds,omitempty"`
 
 	// Specifies the context path where ords is located. Defaults to /ords
-	StandaloneContextPath string `json:"standalonecontextpath,omitempty"`
+	StandaloneContextPath string `json:"standaloneContextPath,omitempty"`
 
 	// Points to the location where static resources to be served under the / root server path are located.
-	StandaloneDocRoot string `json:"standalonedocroot,omitempty"`
+	StandaloneDocRoot string `json:"standaloneDocRoot,omitempty"`
 
 	// Specifies the HTTP listen port.
 	// Default: 8080
-	StandaloneHttpPort int32 `json:"StandaloneHttpPort,omitempty"`
+	StandaloneHttpPort int32 `json:"standaloneHttpPort,omitempty" protobuf:"varint,3,opt,name=standalonehttpport"`
 
 	// Specifies the SSL certificate path.
 	// If you are providing the SSL certificate, then you must specify the certificate location.
-	StandaloneHttpsCert string `json:"StandaloneHttpsCert,omitempty"`
+	StandaloneHttpsCert string `json:"standaloneHttpsCert,omitempty"`
 
 	// Specifies the SSL certificate key path.
 	// If you are providing the SSL certificate, you must specify the certificate key location.
-	StandaloneHttpsCertKey string `json:"StandaloneHttpsCertKey,omitempty"`
+	StandaloneHttpsCertKey string `json:"standaloneHttpsCertKey,omitempty"`
 
 	// Specifies the SSL certificate hostname.
-	StandaloneHttpsHost string `json:"StandaloneHttpsHost,omitempty"`
+	StandaloneHttpsHost string `json:"standaloneHttpsHost,omitempty"`
 
 	// Specifies the HTTPS listen port.
 	// Default: 8443
-	StandaloneHttpsPort int32 `json:"StandaloneHttpsPort,omitempty"`
+	StandaloneHttpsPort int32 `json:"standaloneHttpsPort,omitempty"`
 
 	// Specifies the Context path where APEX static resources are located.
 	// Default: /i
-	StandaloneStaticContextPath string `json:"StandaloneStaticContextPath,omitempty"`
+	StandaloneStaticContextPath string `json:"standaloneStaticContextPath,omitempty"`
 
 	// Specifies the path to the folder containing static resources required by APEX.
-	StandaloneStaticPath string `json:"StandaloneStaticPath,omitempty"`
+	StandaloneStaticPath string `json:"standaloneStaticPath,omitempty"`
 
 	// Specifies the period for Standalone Mode to wait until it is gracefully shutdown.
 	// Default: 10s (10 seconds)
-	StandaloneStopTimeout int32 `json:"StandaloneStopTimeout,omitempty"`
+	StandaloneStopTimeout int32 `json:"standaloneStopTimeout,omitempty"`
 
 	// Specifies the setting to determine for how long a metadata record remains in the cache.
 	// Longer duration means, it takes longer to view the applied changes.
 	// The formats accepted are based on the ISO-8601 duration format.
-	CacheMetadataTimeout string `json:"CacheMetadataTimeout,omitempty"`
+	CacheMetadataTimeout string `json:"cacheMetadataTimeout,omitempty"`
 
 	// Specifies the setting to enable or disable metadata caching.
-	CacheMetadataEnabled bool `json:"CacheMetadataEnabled,omitempty"`
+	CacheMetadataEnabled bool `json:"cacheMetadataEnabled,omitempty"`
 
 	// Specifies whether the Database API is enabled.
-	DatabaseApiEnabled bool `json:"DatabaseApiEnabled,omitempty"`
+	DatabaseApiEnabled bool `json:"databaseApiEnabled,omitempty"`
 
 	// Specifies whether to display error messages on the browser.
-	DebugPrintDebugToScreen bool `json:"DebugPrintDebugToScreen,omitempty"`
+	DebugPrintDebugToScreen bool `json:"debugPrintDebugToScreen,omitempty"`
 
 	// Specifies how the HTTP error responses must be formatted.
 	// html - Force all responses to be in HTML format
 	// json - Force all responses to be in JSON format
 	// auto - Automatically determines most appropriate format for the request (default).
-	ErrorResponseFormat string `json:"ErrorResponseFormat,omitempty"`
+	ErrorResponseFormat string `json:"errorResponseFormat,omitempty"`
 
 	// Specifies the path to a folder that contains the custom error page.
-	ErrorExternalPath string `json:"ErrorExternalPath,omitempty"`
+	ErrorExternalPath string `json:"errorExternalPath,omitempty"`
 
 	// Specifies the Internet Content Adaptation Protocol (ICAP) port to virus scan files.
 	// Either icap.port or icap.secure.port are required to have a value.
-	IcapPort int32 `json:"IcapPort,omitempty"`
+	IcapPort int32 `json:"icapPort,omitempty"`
 
 	// Specifies the Internet Content Adaptation Protocol (ICAP) port to virus scan files.
 	// Either icap.port or icap.secure.port are required to have a value.
 	// If values for both icap.port and icap.secure.port are provided, then the value of icap.port is ignored.
-	IcapSecurePort int32 `json:"IcapSecurePort,omitempty"`
+	IcapSecurePort int32 `json:"icapSecurePort,omitempty"`
 
 	// Specifies the Internet Content Adaptation Protocol (ICAP) server name or IP address to virus scan files.
 	// The icap.server is required to have a value.
-	IcapServer string `json:"IcapServer,omitempty"`
+	IcapServer string `json:"icapServer,omitempty"`
 
 	// Specifies whether procedures are to be logged.
-	LogProcedure bool `json:"LogProcedure,omitempty"`
+	LogProcedure bool `json:"logProcedure,omitempty"`
 
 	// If this value is set to true, then the Oracle REST Data Services internal exclusion list is not enforced.
 	// Oracle recommends that you do not set this value to true.
-	SecurityDisableDefaultExclusionList bool `json:"SecurityDisableDefaultExclusionList,omitempty"`
+	SecurityDisableDefaultExclusionList bool `json:"securityDisableDefaultExclusionList,omitempty"`
 
 	// Specifies a pattern for procedures, packages, or schema names which are forbidden to be directly executed from a browser.
-	SecurityExclusionList string `json:"SecurityExclusionList,omitempty"`
+	SecurityExclusionList string `json:"securityExclusionList,omitempty"`
 
 	// Specifies a pattern for procedures, packages, or schema names which are allowed to be directly executed from a browser.
-	SecurityInclusionList string `json:"SecurityInclusionList,omitempty"`
+	SecurityInclusionList string `json:"securityInclusionList,omitempty"`
 
 	// Specifies the maximum number of cached procedure validations.
 	// Set this value to 0 to force the validation procedure to be invoked on each request.
 	// Defaults to 2000.
-	SecurityMaxEntries int32 `json:"SecurityMaxEntries,omitempty"`
+	SecurityMaxEntries int32 `json:"securityMaxEntries,omitempty"`
 
 	// Specifies whether HTTPS is available in your environment.
-	SecurityVerifySSL bool `json:"SecurityVerifySSL,omitempty"`
+	SecurityVerifySSL bool `json:"securityVerifySSL,omitempty"`
 }
 
 // RestDataServicesStatus defines the observed state of RestDataServices

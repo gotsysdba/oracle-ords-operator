@@ -34,6 +34,196 @@ spec:
           spec:
             description: RestDataServicesSpec defines the desired state of RestDataServices
             properties:
+              globalSettings:
+                description: Contains settings that are configured across the entire
+                  ORDS instance.
+                properties:
+                  cacheMetadataEnabled:
+                    description: Specifies the setting to enable or disable metadata
+                      caching.
+                    type: boolean
+                  cacheMetadataGraphqlExpireAfterAccess:
+                    description: Specifies the duration after a GraphQL schema is
+                      not accessed from the cache that it expires. Default is 8h.
+                    format: int64
+                    type: integer
+                  cacheMetadataJwksEnabled:
+                    default: true
+                    description: Specifies the setting to enable or disable JWKS caching.
+                    type: boolean
+                  cacheMetadataJwksExpireAfterAccess:
+                    description: Specifies the duration after a JWK is not accessed
+                      from the cache that it expires. By default this is disabled.
+                    format: int64
+                    type: integer
+                  cacheMetadataJwksExpireAfterWrite:
+                    description: Specifies the duration after a JWK is cached, that
+                      is, it expires and has to be loaded again. Default is 5 minutes.
+                    format: int64
+                    type: integer
+                  cacheMetadataJwksInitialCapacity:
+                    description: Specifies the initial capacity of the JWKS cache.
+                    format: int32
+                    type: integer
+                  cacheMetadataJwksMaximumSize:
+                    description: Specifies the maximum capacity of the JWKS cache.
+                    format: int32
+                    type: integer
+                  cacheMetadataTimeout:
+                    description: Specifies the setting to determine for how long a
+                      metadata record remains in the cache. Longer duration means,
+                      it takes longer to view the applied changes. The formats accepted
+                      are based on the ISO-8601 duration format.
+                    type: string
+                  databaseApiEnabled:
+                    description: Specifies whether the Database API is enabled.
+                    type: boolean
+                  databaseApiManagementServicesDisabled:
+                    description: Specifies to disable the Database API administration
+                      related services. Only applicable when Database API is enabled.
+                    type: boolean
+                  dbInvalidPoolTimeout:
+                    description: 'Specifies how long to wait before retrying an invalid
+                      pool. Default: 15m'
+                    format: int64
+                    type: integer
+                  debugPrintDebugToScreen:
+                    description: Specifies whether to display error messages on the
+                      browser.
+                    type: boolean
+                  errorExternalPath:
+                    description: Specifies the path to a folder that contains the
+                      custom error page.
+                    type: string
+                  errorResponseFormat:
+                    description: Specifies how the HTTP error responses must be formatted.
+                      html - Force all responses to be in HTML format json - Force
+                      all responses to be in JSON format auto - Automatically determines
+                      most appropriate format for the request (default).
+                    type: string
+                  featureGrahpqlMaxNestingDepth:
+                    description: Specifies the maximum join nesting depth limit for
+                      GraphQL queries. Defaults to 5.
+                    format: int32
+                    type: integer
+                  icapPort:
+                    description: Specifies the Internet Content Adaptation Protocol
+                      (ICAP) port to virus scan files. Either icap.port or icap.secure.port
+                      are required to have a value.
+                    format: int32
+                    type: integer
+                  icapSecurePort:
+                    description: Specifies the Internet Content Adaptation Protocol
+                      (ICAP) port to virus scan files. Either icap.port or icap.secure.port
+                      are required to have a value. If values for both icap.port and
+                      icap.secure.port are provided, then the value of icap.port is
+                      ignored.
+                    format: int32
+                    type: integer
+                  icapServer:
+                    description: Specifies the Internet Content Adaptation Protocol
+                      (ICAP) server name or IP address to virus scan files. The icap.server
+                      is required to have a value.
+                    type: string
+                  logProcedure:
+                    description: Specifies whether procedures are to be logged.
+                    type: boolean
+                  requestTraceHeaderName:
+                    description: Specifies the name of the HTTP request header that
+                      uniquely identifies the request end to end as it passes through
+                      the various layers of the application stack. In Oracle this
+                      header is commonly referred to as the ECID (Entity Context ID).
+                    type: string
+                  securityCredentialsAttempts:
+                    description: Specifies the maximum number of unsuccessful password
+                      attempts allowed. Enabled by setting a positive integer value.
+                      Defaults to -1.
+                    format: int32
+                    type: integer
+                  securityCredentialsFile:
+                    description: Specifies the file where credentials are stored.
+                    type: string
+                  securityCredentialsLockTime:
+                    description: Specifies the period to lock the account that has
+                      exceeded maximum attempts. Defaults to 10m (10 minutes)
+                    format: int64
+                    type: integer
+                  securityDisableDefaultExclusionList:
+                    description: If this value is set to true, then the Oracle REST
+                      Data Services internal exclusion list is not enforced. Oracle
+                      recommends that you do not set this value to true.
+                    type: boolean
+                  securityExclusionList:
+                    description: Specifies a pattern for procedures, packages, or
+                      schema names which are forbidden to be directly executed from
+                      a browser.
+                    type: string
+                  securityInclusionList:
+                    description: Specifies a pattern for procedures, packages, or
+                      schema names which are allowed to be directly executed from
+                      a browser.
+                    type: string
+                  securityMaxEntries:
+                    description: Specifies the maximum number of cached procedure
+                      validations. Set this value to 0 to force the validation procedure
+                      to be invoked on each request. Defaults to 2000.
+                    format: int32
+                    type: integer
+                  securityVerifySSL:
+                    description: Specifies whether HTTPS is available in your environment.
+                    type: boolean
+                  standaloneAccessLog:
+                    description: Specifies the path to the folder to store HTTP request
+                      access logs. If not specified, then no access log is generated.
+                    type: string
+                  standaloneBinds:
+                    description: Specifies the comma separated list of host names
+                      or IP addresses to identify a specific network interface on
+                      which to listen. Default 0.0.0.0
+                    format: byte
+                    type: string
+                  standaloneContextPath:
+                    description: Specifies the context path where ords is located.
+                      Defaults to /ords
+                    type: string
+                  standaloneDocRoot:
+                    description: Points to the location where static resources to
+                      be served under the / root server path are located.
+                    type: string
+                  standaloneHttpPort:
+                    description: 'Specifies the HTTP listen port. Default: 8080'
+                    format: int32
+                    type: integer
+                  standaloneHttpsCert:
+                    description: Specifies the SSL certificate path. If you are providing
+                      the SSL certificate, then you must specify the certificate location.
+                    type: string
+                  standaloneHttpsCertKey:
+                    description: Specifies the SSL certificate key path. If you are
+                      providing the SSL certificate, you must specify the certificate
+                      key location.
+                    type: string
+                  standaloneHttpsHost:
+                    description: Specifies the SSL certificate hostname.
+                    type: string
+                  standaloneHttpsPort:
+                    description: 'Specifies the HTTPS listen port. Default: 8443'
+                    format: int32
+                    type: integer
+                  standaloneStaticContextPath:
+                    description: 'Specifies the Context path where APEX static resources
+                      are located. Default: /i'
+                    type: string
+                  standaloneStaticPath:
+                    description: Specifies the path to the folder containing static
+                      resources required by APEX.
+                    type: string
+                  standaloneStopTimeout:
+                    description: 'Specifies the period for Standalone Mode to wait
+                      until it is gracefully shutdown. Default: 10s (10 seconds)'
+                    format: int32
+                    type: integer
+                type: object
               image:
                 type: string
               imagePullPolicy:
@@ -42,11 +232,6 @@ spec:
                 type: string
               imagePullSecrets:
                 type: string
-              port:
-                description: Number of port to expose on the pod's IP address. This
-                  must be a valid port number, 0 < x < 65536.
-                format: int32
-                type: integer
               replicas:
                 format: int32
                 minimum: 1
@@ -54,7 +239,8 @@ spec:
               workloadType:
                 type: string
             required:
-            - port
+            - globalSettings
+            - image
             type: object
           status:
             description: RestDataServicesStatus defines the observed state of RestDataServices

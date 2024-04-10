@@ -153,19 +153,46 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
-				`  <comment>Default created by Controller</comment>` + "\n" +
-				`  <entry key="database.api.enabled">false</entry>` + "\n" +
-				`  <entry key="debug.printDebugToScreen">false</entry>` + "\n" +
-				`  <entry key="feature.sdw">false</entry>` + "\n" +
-				`  <entry key="jdbc.InitialLimit">10</entry>` + "\n" +
-				`  <entry key="jdbc.MaxLimit">100</entry>` + "\n" +
-				`  <entry key="logr.procedure">false</entry>` + "\n" +
-				`  <entry key="misc.defaultPage">apex</entry>` + "\n" +
-				`  <entry key="restEnabledSql.active">false</entry>` + "\n" +
-				`  <entry key="security.httpsHeaderCheck">X-Forwarded-Proto: https</entry>` + "\n" +
-				`  <entry key="standalone.context.path">/</entry>` + "\n" +
-				fmt.Sprintf(`  <entry key="standalone.http.port">%d</entry>`, ords.Spec.Port) + "\n" +
-				`  <entry key="standalone.static.context.path">/i</entry>` + "\n" +
+				conditionalEntry("cache.metadata.graphql.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataGraphqlExpireAfterAccess) +
+				conditionalEntry("cache.metadata.jwks.enabled", ords.Spec.GlobalSettings.CacheMetadataJwksEnabled) +
+				conditionalEntry("cache.metadata.jwks.initialCapacity", ords.Spec.GlobalSettings.CacheMetadataJwksInitialCapacity) +
+				conditionalEntry("cache.metadata.jwks.maximumSize", ords.Spec.GlobalSettings.CacheMetadataJwksMaximumSize) +
+				conditionalEntry("cache.metadata.jwks.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataJwksExpireAfterAccess) +
+				conditionalEntry("cache.metadata.jwks.expireAfterWrite", ords.Spec.GlobalSettings.CacheMetadataJwksExpireAfterWrite) +
+				conditionalEntry("database.api.management.services.disabled", ords.Spec.GlobalSettings.DatabaseApiManagementServicesDisabled) +
+				conditionalEntry("db.invalidPoolTimeout", ords.Spec.GlobalSettings.DbInvalidPoolTimeout) +
+				conditionalEntry("feature.grahpql.max.nesting.depth", ords.Spec.GlobalSettings.FeatureGrahpqlMaxNestingDepth) +
+				conditionalEntry("request.traceHeaderName", ords.Spec.GlobalSettings.RequestTraceHeaderName) +
+				conditionalEntry("security.credentials.attempts ", ords.Spec.GlobalSettings.SecurityCredentialsAttempts) +
+				conditionalEntry("security.credentials.file ", ords.Spec.GlobalSettings.SecurityCredentialsFile) +
+				conditionalEntry("security.credentials.lock.time ", ords.Spec.GlobalSettings.SecurityCredentialsLockTime) +
+				conditionalEntry("standalone.access.log", ords.Spec.GlobalSettings.StandaloneAccessLog) +
+				conditionalEntry("standalone.binds", ords.Spec.GlobalSettings.StandaloneBinds) +
+				conditionalEntry("standalone.context.path ", ords.Spec.GlobalSettings.StandaloneContextPath) +
+				conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
+				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHttpPort) +
+				conditionalEntry("standalone.https.cert", ords.Spec.GlobalSettings.StandaloneHttpsCert) +
+				conditionalEntry("standalone.https.cert.key", ords.Spec.GlobalSettings.StandaloneHttpsCertKey) +
+				conditionalEntry("standalone.https.host", ords.Spec.GlobalSettings.StandaloneHttpsHost) +
+				conditionalEntry("standalone.https.port", ords.Spec.GlobalSettings.StandaloneHttpsPort) +
+				conditionalEntry("standalone.static.context.path ", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
+				conditionalEntry("standalone.static.path", ords.Spec.GlobalSettings.StandaloneStaticPath) +
+				conditionalEntry("standalone.stop.timeout ", ords.Spec.GlobalSettings.StandaloneStopTimeout) +
+				conditionalEntry("cache.metadata.timeout", ords.Spec.GlobalSettings.CacheMetadataTimeout) +
+				conditionalEntry("cache.metadata.enabled", ords.Spec.GlobalSettings.CacheMetadataEnabled) +
+				conditionalEntry("database.api.enabled", ords.Spec.GlobalSettings.DatabaseApiEnabled) +
+				conditionalEntry("debug.printDebugToScreen", ords.Spec.GlobalSettings.DebugPrintDebugToScreen) +
+				conditionalEntry("error.responseFormat", ords.Spec.GlobalSettings.ErrorResponseFormat) +
+				conditionalEntry("error.externalPath", ords.Spec.GlobalSettings.ErrorExternalPath) +
+				conditionalEntry("icap.port", ords.Spec.GlobalSettings.IcapPort) +
+				conditionalEntry("icap.secure.port", ords.Spec.GlobalSettings.IcapSecurePort) +
+				conditionalEntry("icap.server", ords.Spec.GlobalSettings.IcapServer) +
+				conditionalEntry("log.procedure", ords.Spec.GlobalSettings.LogProcedure) +
+				conditionalEntry("security.disableDefaultExclusionList", ords.Spec.GlobalSettings.SecurityDisableDefaultExclusionList) +
+				conditionalEntry("security.exclusionList", ords.Spec.GlobalSettings.SecurityExclusionList) +
+				conditionalEntry("security.inclusionList", ords.Spec.GlobalSettings.SecurityInclusionList) +
+				conditionalEntry("security.maxEntries", ords.Spec.GlobalSettings.SecurityMaxEntries) +
+				conditionalEntry("security.verifySSL", ords.Spec.GlobalSettings.SecurityVerifySSL) +
 				`</properties>`),
 		},
 	}
@@ -175,6 +202,13 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 		return nil, err
 	}
 	return def, nil
+}
+
+func conditionalEntry(key string, value interface{}) string {
+	if value == nil || value == 0 || value == "" {
+		return ""
+	}
+	return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, value)
 }
 
 func labelsForRestDataServices(name string) map[string]string {
