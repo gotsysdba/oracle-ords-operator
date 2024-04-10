@@ -205,10 +205,29 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 }
 
 func conditionalEntry(key string, value interface{}) string {
-	if value == nil || value == 0 || value == "" {
+	switch v := value.(type) {
+	case nil:
 		return ""
+	case string:
+		if v != "" {
+			return fmt.Sprintf(`  <entry key="%s">%s</entry>`+"\n", key, v)
+		}
+	case *int32:
+		if v != nil {
+			return fmt.Sprintf(`  <entry key="%s">%d</entry>`+"\n", key, *v)
+		}
+	case *bool:
+		if v != nil {
+			return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, *v)
+		}
+	case *time.Duration:
+		if v != nil {
+			return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, *v)
+		}
+	default:
+		return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, v)
 	}
-	return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, value)
+	return ""
 }
 
 func labelsForRestDataServices(name string) map[string]string {
