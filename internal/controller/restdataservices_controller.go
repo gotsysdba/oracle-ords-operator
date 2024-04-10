@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	//"strings"
 	"time"
 
-	//appsv1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +44,7 @@ type RestDataServicesReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=deployments/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
 func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -71,17 +71,17 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// Default ConfigMap
+	// Global ConfigMap
 	existingConfigMap := &corev1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: "ords-default-config", Namespace: ords.Namespace}, existingConfigMap)
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name + "-ords-global-config", Namespace: ords.Namespace}, existingConfigMap)
 	if err != nil && apierrors.IsNotFound(err) {
-		logr.Info("Missing Default ConfigMap, Creating")
+		logr.Info("Missing Global ConfigMap, Creating")
 		def, err := r.defConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
 			condition := metav1.Condition{
 				Type: typeAvailable, Status: metav1.ConditionFalse,
-				Reason: "RequirementsNotMet", Message: "Default ConfigMap does not exist",
+				Reason: "RequirementsNotMet", Message: "Global ConfigMap does not exist",
 			}
 			err := r.updateStatus(ctx, req, ords, condition)
 			return ctrl.Result{}, err
@@ -92,7 +92,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 	} else {
-		logr.Info("Found Default ConfigMap, Reconciling")
+		logr.Info("Found Global ConfigMap, Reconciling")
 		newConfigMap, err := r.defConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
@@ -103,14 +103,55 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err := r.updateStatus(ctx, req, ords, condition)
 			return ctrl.Result{}, err
 		}
-		if equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
-			logr.Info("ConfigMaps are the same. No action needed.")
-			return ctrl.Result{}, nil
+		if !equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
+			logr.Info("Updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
+			if err := r.Update(ctx, newConfigMap); err != nil {
+				logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
+				return ctrl.Result{}, err
+			}
+			// Update deployment's pod label to trigger pod restart
+			deployment := &appsv1.Deployment{}
+			err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deployment)
+			if err == nil {
+				deployment.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
+				if err := r.Update(ctx, deployment); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
 		}
-		logr.Info("Updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
-		if err := r.Update(ctx, newConfigMap); err != nil {
-			logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
+	}
+
+	// Deployment
+	existingDeployment := &appsv1.Deployment{}
+	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingDeployment)
+	if err != nil && apierrors.IsNotFound(err) {
+		logr.Info("Missing Deployment, Creating")
+		def, err := r.defDeployment(ctx, ords)
+		if err != nil {
+			logr.Error(err, "Failed to define new Deployment for RestDataServices")
+			condition := metav1.Condition{
+				Type: typeAvailable, Status: metav1.ConditionFalse,
+				Reason: "RequirementsNotMet", Message: "Deployment does not exist",
+			}
+			err := r.updateStatus(ctx, req, ords, condition)
 			return ctrl.Result{}, err
+		}
+		logr.Info("Creating Deployment", "Namespace", def.Namespace, "Name", def.Name)
+		if err = r.Create(ctx, def); err != nil {
+			logr.Error(err, "Failed creating new Deployment", "Namespace", def.Namespace, "Name", def.Name)
+			return ctrl.Result{}, err
+		}
+	} else {
+		logr.Info("Found Deployment, Reconciling")
+
+		definedReplicas := ords.Spec.Replicas
+		if *existingDeployment.Spec.Replicas != definedReplicas {
+			logr.Info("Scaling Deployment", "Deployment.Namespace", existingDeployment.Namespace, "Deployment.Name", existingDeployment.Name)
+			existingDeployment.Spec.Replicas = &definedReplicas
+			if err := r.Update(ctx, existingDeployment); err != nil {
+				logr.Error(err, "Failed scaling Deployment", "Namespace", existingDeployment.Namespace, "Name", existingDeployment.Name)
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -138,14 +179,14 @@ func (r *RestDataServicesReconciler) updateStatus(ctx context.Context, req ctrl.
 
 // ConfigMaps
 func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.ConfigMap, error) {
-	ls := labelsForRestDataServices(ords.Name)
+	ls := getLabels(ords.Name)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ords-default-config",
+			Name:      ords.Name + "-ords-global-config",
 			Namespace: ords.Namespace,
 			Labels:    ls,
 		},
@@ -204,6 +245,109 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 	return def, nil
 }
 
+// Deployments
+func (r *RestDataServicesReconciler) defDeployment(ctx context.Context, ords *databasev1.RestDataServices) (*appsv1.Deployment, error) {
+	ls := getLabels(ords.Name)
+	podTemplate := defPods(ords)
+	replicas := ords.Spec.Replicas
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name,
+			Namespace: ords.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: podTemplate,
+			},
+		},
+	}
+
+	if err := ctrl.SetControllerReference(ords, dep, r.Scheme); err != nil {
+		return nil, err
+	}
+	return dep, nil
+}
+
+// Pods
+func defPods(ords *databasev1.RestDataServices) corev1.PodSpec {
+	specVolumes := defVolumes(ords)
+	port := int32(8080)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+
+	podTemplate := corev1.PodSpec{
+		Volumes: specVolumes,
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: &[]bool{true}[0],
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+		Containers: []corev1.Container{{
+			Image:           ords.Spec.Image,
+			Name:            ords.Name,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			SecurityContext: &corev1.SecurityContext{
+				RunAsNonRoot:             &[]bool{true}[0],
+				RunAsUser:                &[]int64{54321}[0],
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{
+						"ALL",
+					},
+				},
+			},
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: port,
+				Name:          "standalone-port",
+			}},
+			Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "ORDS_CONFIG",
+					Value: "/opt/oracle/standalone/config",
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "ords-global-config",
+					MountPath: "/opt/oracle/standalone/config/global/",
+					ReadOnly:  false,
+				},
+			},
+		}},
+	}
+	return podTemplate
+}
+
+// Volumes
+func defVolumes(ords *databasev1.RestDataServices) []corev1.Volume {
+	globalConfigMap := ords.Name + "-ords-global-config"
+	specVolumes := []corev1.Volume{
+		{
+			Name: "ords-global-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: globalConfigMap,
+					},
+				},
+			},
+		},
+	}
+	return specVolumes
+}
+
+// Helpers
 func conditionalEntry(key string, value interface{}) string {
 	switch v := value.(type) {
 	case nil:
@@ -230,7 +374,7 @@ func conditionalEntry(key string, value interface{}) string {
 	return ""
 }
 
-func labelsForRestDataServices(name string) map[string]string {
+func getLabels(name string) map[string]string {
 	return map[string]string{"app.kubernetes.io/name": "ORDS",
 		"app.kubernetes.io/instance":   name,
 		"app.kubernetes.io/part-of":    "oracle-ords-operator",
@@ -242,6 +386,7 @@ func labelsForRestDataServices(name string) map[string]string {
 func (r *RestDataServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1.RestDataServices{}).
+		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }

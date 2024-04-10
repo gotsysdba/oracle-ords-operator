@@ -39,6 +39,14 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - deployments/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create

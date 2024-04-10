@@ -231,7 +231,6 @@ spec:
               imagePullSecrets:
                 type: string
               replicas:
-                format: int32
                 minimum: 1
                 type: integer
               workloadType:
