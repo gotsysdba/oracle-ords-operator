@@ -9,8 +9,11 @@ metadata:
     app.kubernetes.io/created-by: oracle-ords-operator
   name: restdataservices-sample-1
 spec:
-  replicas: 2
+  replicas: 1
   image: container-registry.oracle.com/database/ords:latest
   globalSettings:
     standaloneBinds: 0.0.0.0
     standaloneHttpPort: 8080
+  # poolSettings:
+  #   - name: Pool1
+  #   - name: Pool2

@@ -33,6 +33,8 @@ type RestDataServicesSpec struct {
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
 	GlobalSettings GlobalSettings `json:"globalSettings"`
+	// Contains setting that are specific to a specific Pool instance
+	PoolSettings []PoolSettings `json:"poolSettings,omitempty"`
 	// +k8s:openapi-gen=true
 
 }
@@ -79,39 +81,18 @@ type GlobalSettings struct {
 	// Defaults to -1.
 	SecurityCredentialsAttempts *int32 `json:"securityCredentialsAttempts,omitempty"`
 
-	// Specifies the file where credentials are stored.
-	SecurityCredentialsFile string `json:"securityCredentialsFile,omitempty"`
-
 	// Specifies the period to lock the account that has exceeded maximum attempts.
 	// Defaults to 10m (10 minutes)
 	SecurityCredentialsLockTime *time.Duration `json:"securityCredentialsLockTime,omitempty"`
-
-	// Specifies the path to the folder to store HTTP request access logs.
-	// If not specified, then no access log is generated.
-	StandaloneAccessLog string `json:"standaloneAccessLog,omitempty"`
 
 	// Specifies the comma separated list of host names or IP addresses to identify a specific network
 	// interface on which to listen.
 	// Default 0.0.0.0
 	StandaloneBinds string `json:"standaloneBinds,omitempty"`
 
-	// Specifies the context path where ords is located. Defaults to /ords
-	StandaloneContextPath string `json:"standaloneContextPath,omitempty"`
-
-	// Points to the location where static resources to be served under the / root server path are located.
-	StandaloneDocRoot string `json:"standaloneDocRoot,omitempty"`
-
 	// Specifies the HTTP listen port.
 	// Default: 8080
 	StandaloneHttpPort *int32 `json:"standaloneHttpPort,omitempty" protobuf:"varint,3,opt,name=standalonehttpport"`
-
-	// Specifies the SSL certificate path.
-	// If you are providing the SSL certificate, then you must specify the certificate location.
-	StandaloneHttpsCert string `json:"standaloneHttpsCert,omitempty"`
-
-	// Specifies the SSL certificate key path.
-	// If you are providing the SSL certificate, you must specify the certificate key location.
-	StandaloneHttpsCertKey string `json:"standaloneHttpsCertKey,omitempty"`
 
 	// Specifies the SSL certificate hostname.
 	StandaloneHttpsHost string `json:"standaloneHttpsHost,omitempty"`
@@ -119,13 +100,6 @@ type GlobalSettings struct {
 	// Specifies the HTTPS listen port.
 	// Default: 8443
 	StandaloneHttpsPort *int32 `json:"standaloneHttpsPort,omitempty"`
-
-	// Specifies the Context path where APEX static resources are located.
-	// Default: /i
-	StandaloneStaticContextPath string `json:"standaloneStaticContextPath,omitempty"`
-
-	// Specifies the path to the folder containing static resources required by APEX.
-	StandaloneStaticPath string `json:"standaloneStaticPath,omitempty"`
 
 	// Specifies the period for Standalone Mode to wait until it is gracefully shutdown.
 	// Default: 10s (10 seconds)
@@ -150,9 +124,6 @@ type GlobalSettings struct {
 	// json - Force all responses to be in JSON format
 	// auto - Automatically determines most appropriate format for the request (default).
 	ErrorResponseFormat string `json:"errorResponseFormat,omitempty"`
-
-	// Specifies the path to a folder that contains the custom error page.
-	ErrorExternalPath string `json:"errorExternalPath,omitempty"`
 
 	// Specifies the Internet Content Adaptation Protocol (ICAP) port to virus scan files.
 	// Either icap.port or icap.secure.port are required to have a value.
@@ -187,9 +158,45 @@ type GlobalSettings struct {
 
 	// Specifies whether HTTPS is available in your environment.
 	SecurityVerifySSL *bool `json:"securityVerifySSL,omitempty"`
+
+	// Specifies the context path where ords is located. Defaults to /ords
+	StandaloneContextPath struct{} `json:"standaloneContextPath,omitempty"`
+
+	// Points to the location where static resources to be served under the / root server path are located.
+	StandaloneDocRoot struct{} `json:"standaloneDocRoot,omitempty"`
+
+	// THE BELOW ARE PATH LOCATIONS; Expose by ConfigMap/Secret if required
+
+	// Specifies the file where credentials are stored.
+	SecurityCredentialsFile struct{} `json:"securityCredentialsFile,omitempty"`
+
+	// Specifies the path to a folder that contains the custom error page.
+	ErrorExternalPath struct{} `json:"errorExternalPath,omitempty"`
+
+	// Specifies the Context path where APEX static resources are located.
+	// Default: /i
+	StandaloneStaticContextPath struct{} `json:"standaloneStaticContextPath,omitempty"`
+
+	// Specifies the path to the folder containing static resources required by APEX.
+	StandaloneStaticPath struct{} `json:"standaloneStaticPath,omitempty"`
+
+	// Specifies the SSL certificate path.
+	// If you are providing the SSL certificate, then you must specify the certificate location.
+	StandaloneHttpsCert struct{} `json:"standaloneHttpsCert,omitempty"`
+
+	// Specifies the SSL certificate key path.
+	// If you are providing the SSL certificate, you must specify the certificate key location.
+	StandaloneHttpsCertKey struct{} `json:"standaloneHttpsCertKey,omitempty"`
+
+	// Specifies the path to the folder to store HTTP request access logs.
+	// If not specified, then no access log is generated.
+	StandaloneAccessLog struct{} `json:"standaloneAccessLog,omitempty"`
 }
 
 type PoolSettings struct {
+	// Define the Pool Name
+	PoolName string `json:"poolName"`
+
 	// Specifies the comma delimited list of additional roles to assign authenticated APEX administrator type users.
 	ApexSecurityAdministratorRoles string `json:"apexSecurityAdministratorRoles,omitempty"`
 
