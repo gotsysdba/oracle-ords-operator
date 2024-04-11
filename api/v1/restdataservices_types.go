@@ -28,15 +28,13 @@ type RestDataServicesSpec struct {
 	WorkloadType string `json:"workloadType,omitempty"`
 	// +kubebuilder:validation:Minimum=1
 	Replicas         int32             `json:"replicas,omitempty"`
+	ServicePort      int32             `json:"servicePort,omitempty" protobuf:"varint,3,opt,name=serviceport"`
 	Image            string            `json:"image" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
 	GlobalSettings GlobalSettings `json:"globalSettings"`
-	// Contains setting that are specific to a specific Pool instance
-	PoolSettings []PoolSettings `json:"poolSettings,omitempty"`
 	// +k8s:openapi-gen=true
-
 }
 
 type GlobalSettings struct {
@@ -160,37 +158,35 @@ type GlobalSettings struct {
 	SecurityVerifySSL *bool `json:"securityVerifySSL,omitempty"`
 
 	// Specifies the context path where ords is located. Defaults to /ords
-	StandaloneContextPath struct{} `json:"standaloneContextPath,omitempty"`
+	StandaloneContextPath string `json:"-"`
 
 	// Points to the location where static resources to be served under the / root server path are located.
-	StandaloneDocRoot struct{} `json:"standaloneDocRoot,omitempty"`
-
-	// THE BELOW ARE PATH LOCATIONS; Expose by ConfigMap/Secret if required
+	StandaloneDocRoot string `json:"-"`
 
 	// Specifies the file where credentials are stored.
-	SecurityCredentialsFile struct{} `json:"securityCredentialsFile,omitempty"`
+	SecurityCredentialsFile string `json:"-"`
 
 	// Specifies the path to a folder that contains the custom error page.
-	ErrorExternalPath struct{} `json:"errorExternalPath,omitempty"`
+	ErrorExternalPath string `json:"-"`
 
 	// Specifies the Context path where APEX static resources are located.
 	// Default: /i
-	StandaloneStaticContextPath struct{} `json:"standaloneStaticContextPath,omitempty"`
+	StandaloneStaticContextPath string `json:"-"`
 
 	// Specifies the path to the folder containing static resources required by APEX.
-	StandaloneStaticPath struct{} `json:"standaloneStaticPath,omitempty"`
+	StandaloneStaticPath string `json:"-"`
 
 	// Specifies the SSL certificate path.
 	// If you are providing the SSL certificate, then you must specify the certificate location.
-	StandaloneHttpsCert struct{} `json:"standaloneHttpsCert,omitempty"`
+	StandaloneHttpsCert string `json:"-"`
 
 	// Specifies the SSL certificate key path.
 	// If you are providing the SSL certificate, you must specify the certificate key location.
-	StandaloneHttpsCertKey struct{} `json:"standaloneHttpsCertKey,omitempty"`
+	StandaloneHttpsCertKey string `json:"-"`
 
 	// Specifies the path to the folder to store HTTP request access logs.
 	// If not specified, then no access log is generated.
-	StandaloneAccessLog struct{} `json:"standaloneAccessLog,omitempty"`
+	StandaloneAccessLog string `json:"-"`
 }
 
 type PoolSettings struct {

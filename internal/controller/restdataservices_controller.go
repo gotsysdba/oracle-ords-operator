@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,6 +44,8 @@ type RestDataServicesReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=services/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=deployments/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
@@ -71,7 +74,9 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// Global ConfigMap
+	/*************************************************
+	* Global ConfigMap
+	/************************************************/
 	existingConfigMap := &corev1.ConfigMap{}
 	err := r.Get(ctx, types.NamespacedName{Name: ords.Name + "-ords-global-config", Namespace: ords.Namespace}, existingConfigMap)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -86,11 +91,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err := r.updateStatus(ctx, req, ords, condition)
 			return ctrl.Result{}, err
 		}
-		logr.Info("Creating ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 		if err = r.Create(ctx, def); err != nil {
 			logr.Error(err, "Failed creating new ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 			return ctrl.Result{}, err
 		}
+		logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 	} else {
 		logr.Info("Found Global ConfigMap, Reconciling")
 		newConfigMap, err := r.defConfigMap(ctx, ords)
@@ -104,11 +109,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 		if !equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
-			logr.Info("Updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
 			if err := r.Update(ctx, newConfigMap); err != nil {
 				logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
 				return ctrl.Result{}, err
 			}
+			logr.Info("Updated ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
 			// Update deployment's pod label to trigger pod restart
 			deployment := &appsv1.Deployment{}
 			err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deployment)
@@ -121,7 +126,9 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Deployment
+	/*************************************************
+	* Deployment
+	/************************************************/
 	existingDeployment := &appsv1.Deployment{}
 	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingDeployment)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -136,14 +143,12 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err := r.updateStatus(ctx, req, ords, condition)
 			return ctrl.Result{}, err
 		}
-		logr.Info("Creating Deployment", "Namespace", def.Namespace, "Name", def.Name)
 		if err = r.Create(ctx, def); err != nil {
 			logr.Error(err, "Failed creating new Deployment", "Namespace", def.Namespace, "Name", def.Name)
 			return ctrl.Result{}, err
 		}
+		logr.Info("Created Deployment", "Namespace", def.Namespace, "Name", def.Name)
 	} else {
-		logr.Info("Found Deployment, Reconciling")
-
 		definedReplicas := ords.Spec.Replicas
 		if *existingDeployment.Spec.Replicas != definedReplicas {
 			logr.Info("Scaling Deployment", "Deployment.Namespace", existingDeployment.Namespace, "Deployment.Name", existingDeployment.Name)
@@ -155,6 +160,43 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
+	/*************************************************
+	* Serivce
+	/************************************************/
+	existingService := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingService)
+	if err != nil && apierrors.IsNotFound(err) {
+		logr.Info("Missing Service, Creating")
+		def, err := r.defService(ctx, ords)
+		if err != nil {
+			logr.Error(err, "Failed to define new Service for RestDataServices")
+			condition := metav1.Condition{
+				Type: typeAvailable, Status: metav1.ConditionFalse,
+				Reason: "RequirementsNotMet", Message: "Service does not exist",
+			}
+			err := r.updateStatus(ctx, req, ords, condition)
+			return ctrl.Result{}, err
+		}
+		if err = r.Create(ctx, def); err != nil {
+			logr.Error(err, "Failed creating new Service", "Namespace", def.Namespace, "Name", def.Name)
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created Service", "Namespace", def.Namespace, "Name", def.Name)
+	} else {
+		definedServicePort := ords.Spec.ServicePort
+		for _, existingPort := range existingService.Spec.Ports {
+			if existingPort.Name == "sa-svc-port" {
+				if existingPort.Port != definedServicePort {
+					existingPort.Port = definedServicePort
+					if err := r.Update(ctx, existingService); err != nil {
+						logr.Error(err, "Failed reconciling ServicePort", "Namespace", existingService.Namespace, "Name", existingService.Name)
+						return ctrl.Result{}, err
+					}
+				}
+			}
+		}
+	}
+
 	// Set CR Status
 	condition := metav1.Condition{Type: typeAvailable, Status: metav1.ConditionTrue,
 		Reason: "Succeeded", Message: fmt.Sprintf("Resource (%s) created successfully", ords.Name)}
@@ -162,6 +204,9 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, err
 }
 
+/*************************************************
+* Helpers
+/************************************************/
 // UpdateStatus
 func (r *RestDataServicesReconciler) updateStatus(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, condition metav1.Condition) error {
 	logr := log.FromContext(ctx).WithName("updateStatus")
@@ -308,7 +353,7 @@ func defPods(ords *databasev1.RestDataServices) corev1.PodSpec {
 			},
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: port,
-				Name:          "standalone-port",
+				Name:          "sa-pod-port",
 			}},
 			Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
 			Env: []corev1.EnvVar{
@@ -345,6 +390,36 @@ func defVolumes(ords *databasev1.RestDataServices) []corev1.Volume {
 		},
 	}
 	return specVolumes
+}
+
+// Service
+func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.Service, error) {
+	port := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+	ls := getLabels(ords.Name)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name,
+			Namespace: ords.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: ls,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "sa-svc-port",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       port,
+					TargetPort: intstr.FromString("sa-pod-port"),
+				},
+			},
+		},
+	}
+	if err := ctrl.SetControllerReference(ords, svc, r.Scheme); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 // Helpers
@@ -388,5 +463,6 @@ func (r *RestDataServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&databasev1.RestDataServices{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }

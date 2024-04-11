@@ -90,10 +90,6 @@ spec:
                     description: Specifies whether to display error messages on the
                       browser.
                     type: boolean
-                  errorExternalPath:
-                    description: Specifies the path to a folder that contains the
-                      custom error page.
-                    type: string
                   errorResponseFormat:
                     description: Specifies how the HTTP error responses must be formatted.
                       html - Force all responses to be in HTML format json - Force
@@ -139,9 +135,6 @@ spec:
                       Defaults to -1.
                     format: int32
                     type: integer
-                  securityCredentialsFile:
-                    description: Specifies the file where credentials are stored.
-                    type: string
                   securityCredentialsLockTime:
                     description: Specifies the period to lock the account that has
                       exceeded maximum attempts. Defaults to 10m (10 minutes)
@@ -171,36 +164,15 @@ spec:
                   securityVerifySSL:
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
-                  standaloneAccessLog:
-                    description: Specifies the path to the folder to store HTTP request
-                      access logs. If not specified, then no access log is generated.
-                    type: string
                   standaloneBinds:
                     description: Specifies the comma separated list of host names
                       or IP addresses to identify a specific network interface on
                       which to listen. Default 0.0.0.0
                     type: string
-                  standaloneContextPath:
-                    description: Specifies the context path where ords is located.
-                      Defaults to /ords
-                    type: string
-                  standaloneDocRoot:
-                    description: Points to the location where static resources to
-                      be served under the / root server path are located.
-                    type: string
                   standaloneHttpPort:
                     description: 'Specifies the HTTP listen port. Default: 8080'
                     format: int32
                     type: integer
-                  standaloneHttpsCert:
-                    description: Specifies the SSL certificate path. If you are providing
-                      the SSL certificate, then you must specify the certificate location.
-                    type: string
-                  standaloneHttpsCertKey:
-                    description: Specifies the SSL certificate key path. If you are
-                      providing the SSL certificate, you must specify the certificate
-                      key location.
-                    type: string
                   standaloneHttpsHost:
                     description: Specifies the SSL certificate hostname.
                     type: string
@@ -208,14 +180,6 @@ spec:
                     description: 'Specifies the HTTPS listen port. Default: 8443'
                     format: int32
                     type: integer
-                  standaloneStaticContextPath:
-                    description: 'Specifies the Context path where APEX static resources
-                      are located. Default: /i'
-                    type: string
-                  standaloneStaticPath:
-                    description: Specifies the path to the folder containing static
-                      resources required by APEX.
-                    type: string
                   standaloneStopTimeout:
                     description: 'Specifies the period for Standalone Mode to wait
                       until it is gracefully shutdown. Default: 10s (10 seconds)'
@@ -231,7 +195,11 @@ spec:
               imagePullSecrets:
                 type: string
               replicas:
+                format: int32
                 minimum: 1
+                type: integer
+              servicePort:
+                format: int32
                 type: integer
               workloadType:
                 type: string
