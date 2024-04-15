@@ -129,12 +129,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	/*************************************************
 	* Pool ConfigMap
 	/************************************************/
-	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
-		poolName := ords.Spec.PoolSettings[i].PoolName
+	for poolName := range ords.Spec.PoolSettings {
 		err = r.Get(ctx, types.NamespacedName{Name: ords.Name + poolName + "-ords-pool-config", Namespace: ords.Namespace}, existingConfigMap)
 		if err != nil && apierrors.IsNotFound(err) {
 			logr.Info("Missing Pool ConfigMap, Creating")
-			def, err := r.defPoolConfigMap(ctx, ords, i)
+			def, err := r.defPoolConfigMap(ctx, ords, poolName)
 			if err != nil {
 				logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
 				condition := metav1.Condition{
@@ -151,7 +150,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 		} else {
 			logr.Info("Found Pool ConfigMap, Reconciling")
-			newConfigMap, err := r.defPoolConfigMap(ctx, ords, i)
+			newConfigMap, err := r.defPoolConfigMap(ctx, ords, poolName)
 			if err != nil {
 				logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
 				condition := metav1.Condition{
@@ -347,7 +346,7 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 // Pool ConfigMaps
 func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolName string) (*corev1.ConfigMap, error) {
 	ls := getLabels(ords.Name)
-	poolDef := GetPoolSettingsByName(poolName)
+	poolDef := GetPoolSettingsByName(ords, poolName)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -362,64 +361,64 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
-				conditionalEntry("apex.security.administrator.roles", poolDef["ApexSecurityAdministratorRoles"]) +
-				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings.ApexSecurityUserRoles) +
-				conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings.AutoupgradeApiAulocation) +
-				conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings.AutoupgradeApiEnabled) +
-				conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings.AutoupgradeApiJvmlocation) +
-				conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings.AutoupgradeApiLoglocation) +
-				conditionalEntry("db.adminUser", ords.Spec.PoolSettings.DbAdminUser) +
-				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings.DbCdbAdminUser) +
-				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings.DbCredentialsSource) +
-				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings.DbPoolDestroyTimeout) +
-				conditionalEntry("db.wallet.zip", ords.Spec.PoolSettings.DbWalletZip) +
-				conditionalEntry("db.wallet.zip.path", ords.Spec.PoolSettings.DbWalletZipPath) +
-				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings.DbWalletZipService) +
-				conditionalEntry("debug.trackResources", ords.Spec.PoolSettings.DebugTrackResources) +
-				conditionalEntry("feature.openservicebroker.exclude", ords.Spec.PoolSettings.FeatureOpenservicebrokerExclude) +
-				conditionalEntry("feature.sdw", ords.Spec.PoolSettings.FeatureSdw) +
-				conditionalEntry("http.cookie.filter", ords.Spec.PoolSettings.HttpCookieFilter) +
-				conditionalEntry("jdbc.auth.admin.role", ords.Spec.PoolSettings.JdbcAuthAdminRole) +
-				conditionalEntry("jdbc.cleanup.mode", ords.Spec.PoolSettings.JdbCleanupMode) +
-				conditionalEntry("owa.trace.sql", ords.Spec.PoolSettings.OwaTraceSql) +
-				conditionalEntry("plsql.gateway.mode", ords.Spec.PoolSettings.PlsqlGatewayMode) +
-				conditionalEntry("security.jwt.profile.enabled", ords.Spec.PoolSettings.SecurityJwtProfileEnabled) +
-				conditionalEntry("security.jwks.size", ords.Spec.PoolSettings.SecurityJwksSize) +
-				conditionalEntry("security.jwks.connection.timeout", ords.Spec.PoolSettings.SecurityJwksConnectionTimeout) +
-				conditionalEntry("security.jwks.read.timeout", ords.Spec.PoolSettings.SecurityJwksReadTimeout) +
-				conditionalEntry("security.jwks.refresh.interval", ords.Spec.PoolSettings.SecurityJwksRefreshInterval) +
-				conditionalEntry("security.jwt.allowed.skew", ords.Spec.PoolSettings.SecurityJwtAllowedSkew) +
-				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings.SecurityJwtAllowedAge) +
-				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings.SecurityValidationFunctionType) +
-				conditionalEntry("db.connectionType", ords.Spec.PoolSettings.DbConnectionType) +
-				conditionalEntry("db.customURL", ords.Spec.PoolSettings.DbCustomURL) +
-				conditionalEntry("db.hostname", ords.Spec.PoolSettings.DbHostname) +
-				conditionalEntry("db.port", ords.Spec.PoolSettings.DbPort) +
-				conditionalEntry("db.servicename", ords.Spec.PoolSettings.DbServicename) +
-				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings.DbServiceNameSuffix) +
-				conditionalEntry("db.sid", ords.Spec.PoolSettings.DbSid) +
-				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings.DbTnsAliasName) +
-				conditionalEntry("db.tnsDirectory", ords.Spec.PoolSettings.DbTnsDirectory) +
-				conditionalEntry("db.username", ords.Spec.PoolSettings.DbUsername) +
-				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings.JdbcDriverType) +
-				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings.JdbcInactivityTimeout) +
-				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings.JdbcInitialLimit) +
-				conditionalEntry("jdbc.MaxConnectionReuseCount", ords.Spec.PoolSettings.JdbcMaxConnectionReuseCount) +
-				conditionalEntry("jdbc.MaxLimit", ords.Spec.PoolSettings.JdbcMaxLimit) +
-				conditionalEntry("jdbc.auth.enabled", ords.Spec.PoolSettings.JdbcAuthEnabled) +
-				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings.JdbcMaxStatementsLimit) +
-				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings.JdbcMinLimit) +
-				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings.JdbcStatementTimeout) +
-				conditionalEntry("misc.defaultPage", ords.Spec.PoolSettings.MiscDefaultPage) +
-				conditionalEntry("misc.pagination.maxRows", ords.Spec.PoolSettings.MiscPaginationMaxRows) +
-				conditionalEntry("procedure.postProcess", ords.Spec.PoolSettings.ProcedurePostProcess) +
-				conditionalEntry("procedure.preProcess", ords.Spec.PoolSettings.ProcedurePreProcess) +
-				conditionalEntry("procedure.rest.preHook", ords.Spec.PoolSettings.ProcedureRestPreHook) +
-				conditionalEntry("security.requestAuthenticationFunction", ords.Spec.PoolSettings.SecurityRequestAuthenticationFunction) +
-				conditionalEntry("security.requestValidationFunction", ords.Spec.PoolSettings.SecurityRequestValidationFunction) +
-				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings.SodaDefaultLimit) +
-				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings.SodaMaxLimit) +
-				conditionalEntry("restEnabledSql.active", ords.Spec.PoolSettings.RestEnabledSqlActive) +
+				conditionalEntry("apex.security.administrator.roles", poolDef.ApexSecurityAdministratorRoles) +
+				conditionalEntry("apex.security.user.roles", poolDef.ApexSecurityUserRoles) +
+				conditionalEntry("autoupgrade.api.aulocation", poolDef.AutoupgradeApiAulocation) +
+				conditionalEntry("autoupgrade.api.enabled", poolDef.AutoupgradeApiEnabled) +
+				conditionalEntry("autoupgrade.api.jvmlocation", poolDef.AutoupgradeApiJvmlocation) +
+				conditionalEntry("autoupgrade.api.loglocation", poolDef.AutoupgradeApiLoglocation) +
+				conditionalEntry("db.adminUser", poolDef.DbAdminUser) +
+				conditionalEntry("db.cdb.adminUser", poolDef.DbCdbAdminUser) +
+				conditionalEntry("db.credentialsSource", poolDef.DbCredentialsSource) +
+				conditionalEntry("db.poolDestroyTimeout", poolDef.DbPoolDestroyTimeout) +
+				conditionalEntry("db.wallet.zip", poolDef.DbWalletZip) +
+				conditionalEntry("db.wallet.zip.path", poolDef.DbWalletZipPath) +
+				conditionalEntry("db.wallet.zip.service", poolDef.DbWalletZipService) +
+				conditionalEntry("debug.trackResources", poolDef.DebugTrackResources) +
+				conditionalEntry("feature.openservicebroker.exclude", poolDef.FeatureOpenservicebrokerExclude) +
+				conditionalEntry("feature.sdw", poolDef.FeatureSdw) +
+				conditionalEntry("http.cookie.filter", poolDef.HttpCookieFilter) +
+				conditionalEntry("jdbc.auth.admin.role", poolDef.JdbcAuthAdminRole) +
+				conditionalEntry("jdbc.cleanup.mode", poolDef.JdbCleanupMode) +
+				conditionalEntry("owa.trace.sql", poolDef.OwaTraceSql) +
+				conditionalEntry("plsql.gateway.mode", poolDef.PlsqlGatewayMode) +
+				conditionalEntry("security.jwt.profile.enabled", poolDef.SecurityJwtProfileEnabled) +
+				conditionalEntry("security.jwks.size", poolDef.SecurityJwksSize) +
+				conditionalEntry("security.jwks.connection.timeout", poolDef.SecurityJwksConnectionTimeout) +
+				conditionalEntry("security.jwks.read.timeout", poolDef.SecurityJwksReadTimeout) +
+				conditionalEntry("security.jwks.refresh.interval", poolDef.SecurityJwksRefreshInterval) +
+				conditionalEntry("security.jwt.allowed.skew", poolDef.SecurityJwtAllowedSkew) +
+				conditionalEntry("security.jwt.allowed.age", poolDef.SecurityJwtAllowedAge) +
+				conditionalEntry("security.jwt.allowed.age", poolDef.SecurityValidationFunctionType) +
+				conditionalEntry("db.connectionType", poolDef.DbConnectionType) +
+				conditionalEntry("db.customURL", poolDef.DbCustomURL) +
+				conditionalEntry("db.hostname", poolDef.DbHostname) +
+				conditionalEntry("db.port", poolDef.DbPort) +
+				conditionalEntry("db.servicename", poolDef.DbServicename) +
+				conditionalEntry("db.serviceNameSuffix", poolDef.DbServiceNameSuffix) +
+				conditionalEntry("db.sid", poolDef.DbSid) +
+				conditionalEntry("db.tnsAliasName", poolDef.DbTnsAliasName) +
+				conditionalEntry("db.tnsDirectory", poolDef.DbTnsDirectory) +
+				conditionalEntry("db.username", poolDef.DbUsername) +
+				conditionalEntry("jdbc.DriverType", poolDef.JdbcDriverType) +
+				conditionalEntry("jdbc.InactivityTimeout", poolDef.JdbcInactivityTimeout) +
+				conditionalEntry("jdbc.InitialLimit", poolDef.JdbcInitialLimit) +
+				conditionalEntry("jdbc.MaxConnectionReuseCount", poolDef.JdbcMaxConnectionReuseCount) +
+				conditionalEntry("jdbc.MaxLimit", poolDef.JdbcMaxLimit) +
+				conditionalEntry("jdbc.auth.enabled", poolDef.JdbcAuthEnabled) +
+				conditionalEntry("jdbc.MaxStatementsLimit", poolDef.JdbcMaxStatementsLimit) +
+				conditionalEntry("jdbc.MinLimit", poolDef.JdbcMinLimit) +
+				conditionalEntry("jdbc.statementTimeout", poolDef.JdbcStatementTimeout) +
+				conditionalEntry("misc.defaultPage", poolDef.MiscDefaultPage) +
+				conditionalEntry("misc.pagination.maxRows", poolDef.MiscPaginationMaxRows) +
+				conditionalEntry("procedure.postProcess", poolDef.ProcedurePostProcess) +
+				conditionalEntry("procedure.preProcess", poolDef.ProcedurePreProcess) +
+				conditionalEntry("procedure.rest.preHook", poolDef.ProcedureRestPreHook) +
+				conditionalEntry("security.requestAuthenticationFunction", poolDef.SecurityRequestAuthenticationFunction) +
+				conditionalEntry("security.requestValidationFunction", poolDef.SecurityRequestValidationFunction) +
+				conditionalEntry("soda.defaultLimit", poolDef.SodaDefaultLimit) +
+				conditionalEntry("soda.maxLimit", poolDef.SodaMaxLimit) +
+				conditionalEntry("restEnabledSql.active", poolDef.RestEnabledSqlActive) +
 				`</properties>`),
 		},
 	}
@@ -431,12 +430,12 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 	return def, nil
 }
 
-func GetPoolSettingsByName(ords *databasev1.RestDataServices, poolName string) (map[string]interface{}, error) {
+func GetPoolSettingsByName(ords *databasev1.RestDataServices, poolName string) *databasev1.PoolSettings {
 	poolSettings, ok := ords.Spec.PoolSettings[poolName]
 	if !ok {
-		return nil, fmt.Errorf("pool name %s not found", poolName)
+		return nil
 	}
-	return poolSettings, nil
+	return &poolSettings
 }
 
 // Deployments

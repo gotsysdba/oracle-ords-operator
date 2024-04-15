@@ -356,9 +356,13 @@ func (in *RestDataServicesSpec) DeepCopyInto(out *RestDataServicesSpec) {
 	in.GlobalSettings.DeepCopyInto(&out.GlobalSettings)
 	if in.PoolSettings != nil {
 		in, out := &in.PoolSettings, &out.PoolSettings
-		*out = make([]PoolSettings, len(*in))
+		*out = make([]*PoolSettings, len(*in))
 		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(PoolSettings)
+				(*in).DeepCopyInto(*out)
+			}
 		}
 	}
 }

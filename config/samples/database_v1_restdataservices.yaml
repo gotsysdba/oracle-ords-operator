@@ -14,6 +14,5 @@ spec:
   globalSettings:
     standaloneBinds: 0.0.0.0
     standaloneHttpPort: 8080
-  # poolSettings:
-  #   - name: Pool1
-  #   - name: Pool2
+  poolSettings:
+    - poolName: Pool1
