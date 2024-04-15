@@ -81,7 +81,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err := r.Get(ctx, types.NamespacedName{Name: ords.Name + "-ords-global-config", Namespace: ords.Namespace}, existingConfigMap)
 	if err != nil && apierrors.IsNotFound(err) {
 		logr.Info("Missing Global ConfigMap, Creating")
-		def, err := r.defConfigMap(ctx, ords)
+		def, err := r.defGlobalConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
 			condition := metav1.Condition{
@@ -98,7 +98,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 	} else {
 		logr.Info("Found Global ConfigMap, Reconciling")
-		newConfigMap, err := r.defConfigMap(ctx, ords)
+		newConfigMap, err := r.defGlobalConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
 			condition := metav1.Condition{
@@ -121,6 +121,60 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				deployment.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
 				if err := r.Update(ctx, deployment); err != nil {
 					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
+
+	/*************************************************
+	* Pool ConfigMap
+	/************************************************/
+	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
+		poolName := ords.Spec.PoolSettings[i].PoolName
+		err = r.Get(ctx, types.NamespacedName{Name: ords.Name + poolName + "-ords-pool-config", Namespace: ords.Namespace}, existingConfigMap)
+		if err != nil && apierrors.IsNotFound(err) {
+			logr.Info("Missing Pool ConfigMap, Creating")
+			def, err := r.defPoolConfigMap(ctx, ords, i)
+			if err != nil {
+				logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
+				condition := metav1.Condition{
+					Type: typeAvailable, Status: metav1.ConditionFalse,
+					Reason: "RequirementsNotMet", Message: "Global ConfigMap does not exist",
+				}
+				err := r.updateStatus(ctx, req, ords, condition)
+				return ctrl.Result{}, err
+			}
+			if err = r.Create(ctx, def); err != nil {
+				logr.Error(err, "Failed creating new ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
+				return ctrl.Result{}, err
+			}
+			logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
+		} else {
+			logr.Info("Found Pool ConfigMap, Reconciling")
+			newConfigMap, err := r.defPoolConfigMap(ctx, ords, i)
+			if err != nil {
+				logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
+				condition := metav1.Condition{
+					Type: typeAvailable, Status: metav1.ConditionFalse,
+					Reason: "ResourceFound", Message: "Starting ConfigMap Reconciliation",
+				}
+				err := r.updateStatus(ctx, req, ords, condition)
+				return ctrl.Result{}, err
+			}
+			if !equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
+				if err := r.Update(ctx, newConfigMap); err != nil {
+					logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
+					return ctrl.Result{}, err
+				}
+				logr.Info("Updated ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
+				// Update deployment's pod label to trigger pod restart
+				deployment := &appsv1.Deployment{}
+				err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deployment)
+				if err == nil {
+					deployment.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
+					if err := r.Update(ctx, deployment); err != nil {
+						return ctrl.Result{}, err
+					}
 				}
 			}
 		}
@@ -161,7 +215,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	/*************************************************
-	* Serivce
+	* Service
 	/************************************************/
 	existingService := &corev1.Service{}
 	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingService)
@@ -222,8 +276,8 @@ func (r *RestDataServicesReconciler) updateStatus(ctx context.Context, req ctrl.
 	return nil
 }
 
-// ConfigMaps
-func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.ConfigMap, error) {
+// Global ConfigMap
+func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.ConfigMap, error) {
 	ls := getLabels(ords.Name)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -288,6 +342,101 @@ func (r *RestDataServicesReconciler) defConfigMap(ctx context.Context, ords *dat
 		return nil, err
 	}
 	return def, nil
+}
+
+// Pool ConfigMaps
+func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolName string) (*corev1.ConfigMap, error) {
+	ls := getLabels(ords.Name)
+	poolDef := GetPoolSettingsByName(poolName)
+	def := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name + poolName + "-ords-pool-config",
+			Namespace: ords.Namespace,
+			Labels:    ls,
+		},
+		Data: map[string]string{
+			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
+				`<properties>` + "\n" +
+				conditionalEntry("apex.security.administrator.roles", poolDef["ApexSecurityAdministratorRoles"]) +
+				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings.ApexSecurityUserRoles) +
+				conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings.AutoupgradeApiAulocation) +
+				conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings.AutoupgradeApiEnabled) +
+				conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings.AutoupgradeApiJvmlocation) +
+				conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings.AutoupgradeApiLoglocation) +
+				conditionalEntry("db.adminUser", ords.Spec.PoolSettings.DbAdminUser) +
+				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings.DbCdbAdminUser) +
+				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings.DbCredentialsSource) +
+				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings.DbPoolDestroyTimeout) +
+				conditionalEntry("db.wallet.zip", ords.Spec.PoolSettings.DbWalletZip) +
+				conditionalEntry("db.wallet.zip.path", ords.Spec.PoolSettings.DbWalletZipPath) +
+				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings.DbWalletZipService) +
+				conditionalEntry("debug.trackResources", ords.Spec.PoolSettings.DebugTrackResources) +
+				conditionalEntry("feature.openservicebroker.exclude", ords.Spec.PoolSettings.FeatureOpenservicebrokerExclude) +
+				conditionalEntry("feature.sdw", ords.Spec.PoolSettings.FeatureSdw) +
+				conditionalEntry("http.cookie.filter", ords.Spec.PoolSettings.HttpCookieFilter) +
+				conditionalEntry("jdbc.auth.admin.role", ords.Spec.PoolSettings.JdbcAuthAdminRole) +
+				conditionalEntry("jdbc.cleanup.mode", ords.Spec.PoolSettings.JdbCleanupMode) +
+				conditionalEntry("owa.trace.sql", ords.Spec.PoolSettings.OwaTraceSql) +
+				conditionalEntry("plsql.gateway.mode", ords.Spec.PoolSettings.PlsqlGatewayMode) +
+				conditionalEntry("security.jwt.profile.enabled", ords.Spec.PoolSettings.SecurityJwtProfileEnabled) +
+				conditionalEntry("security.jwks.size", ords.Spec.PoolSettings.SecurityJwksSize) +
+				conditionalEntry("security.jwks.connection.timeout", ords.Spec.PoolSettings.SecurityJwksConnectionTimeout) +
+				conditionalEntry("security.jwks.read.timeout", ords.Spec.PoolSettings.SecurityJwksReadTimeout) +
+				conditionalEntry("security.jwks.refresh.interval", ords.Spec.PoolSettings.SecurityJwksRefreshInterval) +
+				conditionalEntry("security.jwt.allowed.skew", ords.Spec.PoolSettings.SecurityJwtAllowedSkew) +
+				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings.SecurityJwtAllowedAge) +
+				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings.SecurityValidationFunctionType) +
+				conditionalEntry("db.connectionType", ords.Spec.PoolSettings.DbConnectionType) +
+				conditionalEntry("db.customURL", ords.Spec.PoolSettings.DbCustomURL) +
+				conditionalEntry("db.hostname", ords.Spec.PoolSettings.DbHostname) +
+				conditionalEntry("db.port", ords.Spec.PoolSettings.DbPort) +
+				conditionalEntry("db.servicename", ords.Spec.PoolSettings.DbServicename) +
+				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings.DbServiceNameSuffix) +
+				conditionalEntry("db.sid", ords.Spec.PoolSettings.DbSid) +
+				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings.DbTnsAliasName) +
+				conditionalEntry("db.tnsDirectory", ords.Spec.PoolSettings.DbTnsDirectory) +
+				conditionalEntry("db.username", ords.Spec.PoolSettings.DbUsername) +
+				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings.JdbcDriverType) +
+				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings.JdbcInactivityTimeout) +
+				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings.JdbcInitialLimit) +
+				conditionalEntry("jdbc.MaxConnectionReuseCount", ords.Spec.PoolSettings.JdbcMaxConnectionReuseCount) +
+				conditionalEntry("jdbc.MaxLimit", ords.Spec.PoolSettings.JdbcMaxLimit) +
+				conditionalEntry("jdbc.auth.enabled", ords.Spec.PoolSettings.JdbcAuthEnabled) +
+				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings.JdbcMaxStatementsLimit) +
+				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings.JdbcMinLimit) +
+				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings.JdbcStatementTimeout) +
+				conditionalEntry("misc.defaultPage", ords.Spec.PoolSettings.MiscDefaultPage) +
+				conditionalEntry("misc.pagination.maxRows", ords.Spec.PoolSettings.MiscPaginationMaxRows) +
+				conditionalEntry("procedure.postProcess", ords.Spec.PoolSettings.ProcedurePostProcess) +
+				conditionalEntry("procedure.preProcess", ords.Spec.PoolSettings.ProcedurePreProcess) +
+				conditionalEntry("procedure.rest.preHook", ords.Spec.PoolSettings.ProcedureRestPreHook) +
+				conditionalEntry("security.requestAuthenticationFunction", ords.Spec.PoolSettings.SecurityRequestAuthenticationFunction) +
+				conditionalEntry("security.requestValidationFunction", ords.Spec.PoolSettings.SecurityRequestValidationFunction) +
+				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings.SodaDefaultLimit) +
+				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings.SodaMaxLimit) +
+				conditionalEntry("restEnabledSql.active", ords.Spec.PoolSettings.RestEnabledSqlActive) +
+				`</properties>`),
+		},
+	}
+
+	// Set the ownerRef
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
+		return nil, err
+	}
+	return def, nil
+}
+
+func GetPoolSettingsByName(ords *databasev1.RestDataServices, poolName string) (map[string]interface{}, error) {
+	poolSettings, ok := ords.Spec.PoolSettings[poolName]
+	if !ok {
+		return nil, fmt.Errorf("pool name %s not found", poolName)
+	}
+	return poolSettings, nil
 }
 
 // Deployments

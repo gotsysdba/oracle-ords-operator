@@ -194,6 +194,311 @@ spec:
                 type: string
               imagePullSecrets:
                 type: string
+              poolSettings:
+                description: Contains settings for individual pools/databases
+                items:
+                  properties:
+                    ApexSecurityUserRoles:
+                      description: Specifies the comma delimited list of additional
+                        roles to assign authenticated regular APEX users.
+                      type: string
+                    AutoupgradeApiAulocation:
+                      description: specifies a configuration setting for AutoUpgrade.jar
+                        location.
+                      type: string
+                    AutoupgradeApiJvmlocation:
+                      description: Specifies a configuration setting for AutoUpgrade
+                        REST API JVM location.
+                      type: string
+                    AutoupgradeApiLoglocation:
+                      description: Specifies a configuration setting for AutoUpgrade
+                        REST API log location.
+                      type: string
+                    DbAdminUser:
+                      description: Specifies the username for the database account
+                        that ORDS uses for administration operations in the database.
+                      type: string
+                    DbCredentialsSource:
+                      description: Specifies the source for database credentials when
+                        creating a direct connection for running SQL statements. Value
+                        can be one of pool or request. If the value is pool, then
+                        the credentials defined in this pool is used to create a JDBC
+                        connection. If the value request is used, then the credentials
+                        in the request is used to create a JDBC connection and if
+                        successful, grants the requestor SQL Developer role. Default
+                        value is pool.
+                      type: string
+                    DbPort:
+                      description: Specifies the database listener port.
+                      format: int32
+                      type: integer
+                    DbWalletZipPath:
+                      description: Specifies the path to a wallet archive containing
+                        connection details for the pool.
+                      type: string
+                    JdbcAuthAdminRole:
+                      description: Identifies the database role that indicates that
+                        the database user must get the SQL Administrator role.
+                      type: string
+                    JdbcMinLimit:
+                      description: 'Specifies the minimum number of connections. Default:
+                        2'
+                      format: int32
+                      type: integer
+                    PlsqlGatewayMode:
+                      description: Indicates if the PL/SQL Gateway functionality should
+                        be available for a pool or not. Value can be one of disabled,
+                        direct, or proxied. If the value is direct, then the pool
+                        serves the PL/SQL Gateway requests directly. If the value
+                        is PLSQL_GATEWAY_CONFIG, view is used to determine the user
+                        to whom to proxy.
+                      type: string
+                    SodaMaxLimit:
+                      description: 'When using the SODA REST API, specifies the maximum
+                        number of documents that will be returned for a GET request
+                        on a collection URL, regardless of any limit specified in
+                        the URL. Must be a positive integer, or "unlimited" for no
+                        limit. Default: 1000'
+                      type: string
+                    apexSecurityAdministratorRoles:
+                      description: Specifies the comma delimited list of additional
+                        roles to assign authenticated APEX administrator type users.
+                      type: string
+                    autoupgradeApiEnabled:
+                      description: Specifies a configuration setting to enable AutoUpgrade
+                        REST API features.
+                      type: boolean
+                    dbCdbAdminUser:
+                      description: Specifies the username for the database account
+                        that ORDS uses for the Pluggable Database Lifecycle Management.
+                      type: string
+                    dbConnectionType:
+                      description: 'The type of connection. Supported values: basic,
+                        tns, customurl'
+                      type: string
+                    dbCustomURL:
+                      description: Specifies the JDBC URL connection to connect to
+                        the database.
+                      type: string
+                    dbHostname:
+                      description: Specifies the host system for the Oracle database.
+                      type: string
+                    dbPoolDestroyTimeout:
+                      description: 'Indicates how long to wait to gracefully destroy
+                        a pool before moving to forcefully destroy all connections
+                        including borrowed ones. Default: 5m'
+                      format: int64
+                      type: integer
+                    dbServiceNameSuffix:
+                      description: Specifies that the pool points to a CDB, and that
+                        the PDBs connected to that CDB should be made addressable
+                        by Oracle REST Data Services
+                      type: string
+                    dbServicename:
+                      description: Specifies the network service name of the database.
+                      type: string
+                    dbSid:
+                      description: Specifies the name of the database.
+                      type: string
+                    dbTnsAliasName:
+                      description: Specifies the TNS alias name that matches the name
+                        in the tnsnames.ora file.
+                      type: string
+                    dbTnsDirectory:
+                      description: The directory location of your tnsnames.ora file.
+                      type: string
+                    dbUsername:
+                      description: Specifies the name of the database user for the
+                        connection.
+                      type: string
+                    dbWalletZip:
+                      description: Specifies the wallet archive (provided in BASE64
+                        encoding) containing connection details for the pool.
+                      type: string
+                    dbWalletZipService:
+                      description: Specifies the service name in the wallet archive
+                        for the pool.
+                      type: string
+                    debugTrackResources:
+                      description: Specifies to enable tracking of JDBC resources.
+                        If not released causes in resource leaks or exhaustion in
+                        the database. Tracking imposes a performance overhead.
+                      type: boolean
+                    featureOpenservicebrokerExclude:
+                      description: Specifies to disable the Open Service Broker services
+                        available for the pool.
+                      type: boolean
+                    featureSdw:
+                      description: Specifies to enable the Database Actions feature.
+                      type: boolean
+                    httpCookieFilter:
+                      description: Specifies a comma separated list of HTTP Cookies
+                        to exclude when initializing an Oracle Web Agent environment.
+                      type: string
+                    jdbCleanupMode:
+                      description: Specifies how a pooled JDBC connection and corresponding
+                        database session, is released when a request has been processed.
+                        Default value is RECYCLE
+                      type: string
+                    jdbcAuthEnabled:
+                      description: Specifies if the PL/SQL Gateway calls can be authenticated
+                        using database users. If the value is true then this feature
+                        is enabled. If the value is false, then this feature is disabled.
+                        The default value is false. Oracle recommends not to use this
+                        feature. This feature used only to facilitate customers migrating
+                        from mod_plsql.
+                      type: boolean
+                    jdbcDriverType:
+                      description: 'Specifies the JDBC driver type. Supported values:
+                        thin, oci8 Default: thin'
+                      type: string
+                    jdbcInactivityTimeout:
+                      description: Specifies how long an available connection can
+                        remain idle before it is closed. The inactivity connection
+                        timeout is in seconds. Defaults to 1800.
+                      format: int32
+                      type: integer
+                    jdbcInitialLimit:
+                      description: Specifies the initial size for the number of connections
+                        that will be created. Defaults to 10. (The default is low,
+                        and should probably be set higher in most production environments.)
+                      format: int32
+                      type: integer
+                    jdbcMaxConnectionReuseCount:
+                      description: Specifies the maximum number of times to reuse
+                        a connection before it is discarded and replaced with a new
+                        connection. Defaults to 1000.
+                      format: int32
+                      type: integer
+                    jdbcMaxLimit:
+                      description: Specifies the maximum number of connections. Defaults
+                        to 10. (Might be too low for some production environments.)
+                      format: int32
+                      type: integer
+                    jdbcMaxStatementsLimit:
+                      description: 'Specifies the maximum number of statements to
+                        cache for each connection. Default: 10'
+                      format: int32
+                      type: integer
+                    jdbcStatementTimeout:
+                      description: 'Specifies a timeout period on a statement. An
+                        abnormally long running query or script, executed by a request,
+                        may leave it in a hanging state unless a timeout is set on
+                        the statement. Setting a timeout on the statement ensures
+                        that all the queries automatically timeout if they are not
+                        completed within the specified time period. Default: 900'
+                      format: int32
+                      type: integer
+                    miscDefaultPage:
+                      description: Specifies the default page to display. The Oracle
+                        REST Data Services Landing Page.
+                      type: string
+                    miscPaginationMaxRows:
+                      description: 'Specifies the maximum number of rows that will
+                        be returned from a query when processing a RESTful service
+                        and that will be returned from a nested cursor in a result
+                        set. Affects all RESTful services generated through a SQL
+                        query, regardless of whether the resource is paginated. Default:
+                        10000'
+                      format: int32
+                      type: integer
+                    owaTraceSql:
+                      description: If it is true, then it causes a trace of the SQL
+                        statements performed by Oracle Web Agent to be echoed to the
+                        log.
+                      type: boolean
+                    poolName:
+                      description: Define the Pool Name
+                      type: string
+                    procedurePostProcess:
+                      description: Specifies the procedure name(s) to execute after
+                        executing the procedure specified on the URL. Multiple procedure
+                        names must be separated by commas.
+                      type: string
+                    procedurePreProcess:
+                      description: Specifies the procedure name(s) to execute prior
+                        to executing the procedure specified on the URL. Multiple
+                        procedure names must be separated by commas.
+                      type: string
+                    procedureRestPreHook:
+                      description: Specifies the function to be invoked prior to dispatching
+                        each Oracle REST Data Services based REST Service. The function
+                        can perform configuration of the database session, perform
+                        additional validation or authorization of the request. If
+                        the function returns true, then processing of the request
+                        continues. If the function returns false, then processing
+                        of the request is aborted and an HTTP 403 Forbidden status
+                        is returned.
+                      type: string
+                    restEnabledSqlActive:
+                      description: 'Specifies whether the REST-Enabled SQL service
+                        is active. Default: false'
+                      type: boolean
+                    securityJwksConnectionTimeout:
+                      description: Specifies the maximum amount of time before timing-out
+                        when accessing a JWK url. Default is 5 seconds.
+                      format: int64
+                      type: integer
+                    securityJwksReadTimeout:
+                      description: Specifies the maximum amount of time reading a
+                        response from the JWK url before timing-out. Default is 5
+                        seconds.
+                      format: int64
+                      type: integer
+                    securityJwksRefreshInterval:
+                      description: Specifies the minimum interval between refreshing
+                        the JWK cached value.
+                      format: int64
+                      type: integer
+                    securityJwksSize:
+                      description: Specifies the maximum number of bytes read from
+                        the JWK url. Default 100000 bytes.
+                      format: int32
+                      type: integer
+                    securityJwtAllowedAge:
+                      description: Specifies the maximum allowed age of a JWT in seconds,
+                        regardless of expired claim. The age of the JWT is taken from
+                        the JWT issued at claim. By default, it is disabled.
+                      format: int64
+                      type: integer
+                    securityJwtAllowedSkew:
+                      description: Specifies the maximum skew the JWT time claims
+                        are accepted. This is useful if the clock on the JWT issuer
+                        and ORDS differs by a few seconds. By default, it is disabled.
+                      format: int64
+                      type: integer
+                    securityJwtProfileEnabled:
+                      description: 'Specifies whether the JWT Profile authentication
+                        is available. Supported values: Default: true'
+                      type: boolean
+                    securityRequestAuthenticationFunction:
+                      description: Specifies an authentication function to determine
+                        if the requested procedure in the URL should be allowed or
+                        disallowed for processing. The function should return true
+                        if the procedure is allowed; otherwise, it should return false.
+                        If it returns false, Oracle REST Data Services will return
+                        WWW-Authenticate in the response header.
+                      type: string
+                    securityRequestValidationFunction:
+                      description: Specifies a validation function to determine if
+                        the requested procedure in the URL should be allowed or disallowed
+                        for processing. The function should return true if the procedure
+                        is allowed; otherwise, return false.
+                      type: string
+                    securityValidationFunctionType:
+                      description: 'Indicates the type of security.requestValidationFunction:
+                        javascript or plsql. Default: plsql'
+                      type: string
+                    sodaDefaultLimit:
+                      description: 'When using the SODA REST API, specifies the default
+                        number of documents returned for a GET request on a collection
+                        when a limit is not specified in the URL. Must be a positive
+                        integer, or "unlimited" for no limit. Default: 100'
+                      type: string
+                  required:
+                  - poolName
+                  type: object
+                type: array
               replicas:
                 format: int32
                 minimum: 1

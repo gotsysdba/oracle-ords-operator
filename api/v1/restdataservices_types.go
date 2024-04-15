@@ -24,6 +24,7 @@ import (
 )
 
 // RestDataServicesSpec defines the desired state of RestDataServices
+// +kubebuilder:resource:shortName="ords"
 type RestDataServicesSpec struct {
 	WorkloadType string `json:"workloadType,omitempty"`
 	// +kubebuilder:validation:Minimum=1
@@ -34,6 +35,8 @@ type RestDataServicesSpec struct {
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
 	GlobalSettings GlobalSettings `json:"globalSettings"`
+	// Contains settings for individual pools/databases
+	PoolSettings []*PoolSettings `json:"poolSettings,omitempty"`
 	// +k8s:openapi-gen=true
 }
 
@@ -215,13 +218,15 @@ type PoolSettings struct {
 	DbAdminUser string `json:"DbAdminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for administration operations in the database.
-	DbAdminUserPassword string `json:"DbAdminUserPassword,omitempty"`
+	// DO NOT USE
+	// DbAdminUserPassword struct{} `json:"DbAdminUserPassword,omitempty"`
 
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
 	DbCdbAdminUser string `json:"dbCdbAdminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	DbCdbAdminUserPassword string `json:"dbCdbAdminUserPassword,omitempty"`
+	// DO NOT USE
+	// DbCdbAdminUserPassword struct{} `json:"dbCdbAdminUserPassword,omitempty"`
 
 	// Specifies the source for database credentials when creating a direct connection for running SQL statements.
 	// Value can be one of pool or request.
@@ -315,10 +320,10 @@ type PoolSettings struct {
 	// Specifies the host system for the Oracle database.
 	DbHostname string `json:"dbHostname,omitempty"`
 
-	// Specifies the password of the specified database user.
-	// Include an exclamation at the beginning of the password so that it can be stored encrypted.
-	// DO NOT USE
-	DbPassword struct{} `json:"dbPassword,omitempty"`
+	// // Specifies the password of the specified database user.
+	// // Include an exclamation at the beginning of the password so that it can be stored encrypted.
+	// // DO NOT USE
+	// DbPassword struct{} `json:"dbPassword,omitempty"`
 
 	// Specifies the database listener port.
 	DbPort *int32 `json:"DbPort,omitempty"`
