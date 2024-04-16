@@ -41,7 +41,7 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
 
 1. Install Software using Brew
     ```bash
-    brew install kind podman kubectl
+    brew install kind podman kubectl golang operator-sdk
     ```
 2. Setup the `podman` helper
     ```bash
