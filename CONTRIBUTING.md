@@ -36,6 +36,8 @@ Only pull requests from committers that can be verified as having signed the OCA
 
 ## Development 
 
+For information about helping develop this Operator, review the [Developing](DEVELOPING.md) guidance.
+
 ## Code of conduct
 
 Follow the [Golden Rule](https://en.wikipedia.org/wiki/Golden_Rule). If you'd like more specific guidelines, then see the [Contributor Covenant Code of Conduct][COC].

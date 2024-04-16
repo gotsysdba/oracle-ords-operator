@@ -27,10 +27,17 @@ const RestDataServicesFinalizer = "database.oracle.com/restdataservicesfinalizer
 
 // Definitions to manage status conditions
 const (
-	// typeAvailable represents the status of the Deployment reconciliation
 	typeAvailable = "Available"
-	// typeDegraded represents the status deleted and the finalizer operations are must to occur.
-	typeDegraded = "Degraded"
+	typeDegraded  = "Degraded"
+)
+
+// Definitions of Standards
+const (
+	ordsConfigBase    = "/opt/oracle/standalone/config"
+	servicePortName   = "sa-svc-port"
+	targetPortName    = "sa-pod-port"
+	globalConfigName  = "sa-settings-global"
+	poolConfigPreName = "sa-settings-" // Append PoolName
 )
 
 // RestDataServicesReconciler reconciles a RestDataServices object
@@ -79,11 +86,10 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	* Global ConfigMap
 	/************************************************/
 	existingConfigMap := &corev1.ConfigMap{}
-	globalConfigMapName := strings.ToLower(ords.Name + "-global-settings")
-	err := r.Get(ctx, types.NamespacedName{Name: globalConfigMapName, Namespace: ords.Namespace}, existingConfigMap)
+	err := r.Get(ctx, types.NamespacedName{Name: globalConfigName, Namespace: ords.Namespace}, existingConfigMap)
 	if err != nil && apierrors.IsNotFound(err) {
 		logr.Info("Missing Global ConfigMap, Creating")
-		def, err := r.defGlobalConfigMap(ctx, ords, globalConfigMapName)
+		def, err := r.defGlobalConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
 			condition := metav1.Condition{
@@ -100,7 +106,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 	} else {
 		logr.Info("Found Global ConfigMap, Reconciling")
-		newConfigMap, err := r.defGlobalConfigMap(ctx, ords, globalConfigMapName)
+		newConfigMap, err := r.defGlobalConfigMap(ctx, ords)
 		if err != nil {
 			logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
 			condition := metav1.Condition{
@@ -133,7 +139,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	/************************************************/
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
 		poolName := ords.Spec.PoolSettings[i].PoolName
-		poolConfigMapName := strings.ToLower(ords.Name + "-" + poolName + "-settings")
+		poolConfigMapName := poolConfigPreName + strings.ToLower(poolName)
 		err = r.Get(ctx, types.NamespacedName{Name: poolConfigMapName, Namespace: ords.Namespace}, existingConfigMap)
 		if err != nil && apierrors.IsNotFound(err) {
 			logr.Info("Missing Pool ConfigMap, Creating")
@@ -242,7 +248,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	} else {
 		definedServicePort := ords.Spec.ServicePort
 		for _, existingPort := range existingService.Spec.Ports {
-			if existingPort.Name == "sa-svc-port" {
+			if existingPort.Name == servicePortName {
 				if existingPort.Port != definedServicePort {
 					existingPort.Port = definedServicePort
 					if err := r.Update(ctx, existingService); err != nil {
@@ -280,7 +286,7 @@ func (r *RestDataServicesReconciler) updateStatus(ctx context.Context, req ctrl.
 }
 
 // Global ConfigMap
-func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ords *databasev1.RestDataServices, globalConfigMapName string) (*corev1.ConfigMap, error) {
+func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.ConfigMap, error) {
 	ls := getLabels(ords.Name)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -288,7 +294,7 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      globalConfigMapName,
+			Name:      globalConfigName,
 			Namespace: ords.Namespace,
 			Labels:    ls,
 		},
@@ -348,7 +354,7 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 }
 
 // Pool ConfigMaps
-func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolConfigMapName string, i int) (*corev1.ConfigMap, error) {
+func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolConfigName string, i int) (*corev1.ConfigMap, error) {
 	ls := getLabels(ords.Name)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -356,7 +362,7 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      poolConfigMapName,
+			Name:      poolConfigName,
 			Namespace: ords.Namespace,
 			Labels:    ls,
 		},
@@ -496,13 +502,13 @@ func defPods(ords *databasev1.RestDataServices) corev1.PodSpec {
 			},
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: port,
-				Name:          "sa-pod-port",
+				Name:          targetPortName,
 			}},
 			Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "ORDS_CONFIG",
-					Value: "/opt/oracle/standalone/config",
+					Value: ordsConfigBase,
 				},
 			},
 			VolumeMounts: specVolumeMounts,
@@ -518,20 +524,20 @@ func defVolumes(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1.Vo
 	var volumeMounts []corev1.VolumeMount
 
 	// Build volume specifications for globalSettings
-	globalName := strings.ToLower(ords.Name + "-global-settings")
-	globalVolume := buildVolume(globalName)
+	globalVolume := buildVolume(globalConfigName)
 	volumes = append(volumes, globalVolume)
 
-	globalVolumeMount := buildVolumeMount(globalName, "/opt/oracle/standalone/config/global/")
+	globalVolumeMount := buildVolumeMount(globalConfigName, ordsConfigBase+"/global/")
 	volumeMounts = append(volumeMounts, globalVolumeMount)
 
 	// Build volume specifications for each pool in poolSettings
 	for _, pool := range ords.Spec.PoolSettings {
-		poolName := strings.ToLower(ords.Name + "-" + pool.PoolName + "-settings")
-		poolVolume := buildVolume(poolName)
+		poolName := strings.ToLower(pool.PoolName)
+		poolConfigName := poolConfigPreName + poolName
+		poolVolume := buildVolume(poolConfigName)
 		volumes = append(volumes, poolVolume)
 
-		poolVolumeMount := buildVolumeMount(poolName, "/opt/oracle/standalone/config/database/"+strings.ToLower(pool.PoolName)+"/")
+		poolVolumeMount := buildVolumeMount(poolConfigName, ordsConfigBase+"/database/"+poolName+"/")
 		volumeMounts = append(volumeMounts, poolVolumeMount)
 
 	}
@@ -575,10 +581,10 @@ func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *datab
 			Selector: ls,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "sa-svc-port",
+					Name:       servicePortName,
 					Protocol:   corev1.ProtocolTCP,
 					Port:       port,
-					TargetPort: intstr.FromString("sa-pod-port"),
+					TargetPort: intstr.FromString(targetPortName),
 				},
 			},
 		},

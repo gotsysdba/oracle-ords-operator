@@ -1,0 +1,72 @@
+# Developing for Contribution
+
+Oracle welcomes your contributions! For more information about how to contribute, review the [Contributing](CONTRIBUTING.md) guidelines.
+
+The below is guidance for establishing a development environment and building/testing contributions before submitting them for review.
+
+## Prerequisites
+
+This Operator is developed using the [Operator SDK](https://sdk.operatorframework.io/) Framework.
+
+- Access to a Kubernetes v1.28.8+ cluster.
+- Access to a Container Registry.
+- kubectl version v1.29.3+.
+- go version v1.21.9+.
+- docker/podman (for podman, make sure the docker command is aliased to podman).
+
+
+### Kubernetes Cluster
+
+**A Kubernetes Cluster is required.**  The cluster can be localised via Rancher, Docker, Minikube, Kind etc. or remote using cloud based clusters such as Oracle Kubernetes Engine (OKE).  For a localised cluster, [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation) is preferred as it can store the Operator image without the need for an external Container Registry.
+
+**Access to the Cluster is required.** Access via `kubectl` to the Kubernetes cluster 
+
+
+## Example Setup and Workflow
+
+This is an example only of setting up your development environment and a standard workflow.
+
+### Setup
+
+If you are using a different OS/Architecture, please feel encouraged to provide additional instructions.
+
+Note the following images are pulled as part of the development:
+* docker.io/kindest/node:v1.29.2 (when using Kind)
+* docker.io/moby/buildkit:buildx-stable-1
+* container-registry.oracle.com/os/oraclelinux:9-slim
+* container-registry.oracle.com/database/ords:23.4.0
+
+#### MacOS(Intel)
+This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
+
+1. Install Software using Brew
+    ```bash
+    brew install kind podman kubectl
+    ```
+2. Setup the `podman` helper
+    ```bash
+    PODMAN_VERSION=$(podman -v |awk '{print $NF}')
+    sudo /usr/local/Cellar/podman/${PODMAN_VERSION}/bin/podman-mac-helper install
+    ```
+3. Alias `docker` to `podman`
+    ```bash
+    alias docker='podman'
+    ```
+3. Create a `podman` machine:
+    ```bash
+    podman machine init
+    podman machine set --rootful
+    podman machine start
+    ```
+4. Create a Kind cluster:
+    ```bash
+    kind create cluster --name ords-operator
+    ```
+5. Verify cluster access:
+    ```bash
+    kubectl cluster-info --context kind-ords-operator
+    ```
+
+### Workflow
+
+
