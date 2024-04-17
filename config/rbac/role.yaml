@@ -7,7 +7,31 @@ rules:
 - apiGroups:
   - apps
   resources:
+  - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - statefulsets
   verbs:
   - create
   - delete
@@ -32,6 +56,14 @@ rules:
   - ""
   resources:
   - configmaps/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - daemonsets/status
   verbs:
   - get
   - patch
@@ -75,6 +107,14 @@ rules:
   - ""
   resources:
   - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - statefulsets/status
   verbs:
   - get
   - patch
