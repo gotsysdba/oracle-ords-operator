@@ -16,4 +16,4 @@ spec:
     standaloneHttpPort: 8080
   poolSettings:
     - poolName: Pool1
-    - poolName: Pool2
+      ApexSecurityUserRoles: "testing2"

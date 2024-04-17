@@ -73,7 +73,7 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
 make generate
 make manifests
 make docker-build
-kind load docker-image localhost/oracle-ords-controller:0.0.1 -n ords-operator
+make kind-load
 ```
 
 ```bash
