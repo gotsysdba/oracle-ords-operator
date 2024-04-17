@@ -1,4 +1,4 @@
-module github.com/gotsysdba/oracle-ords-operator
+module example.com/oracle-ords-operator
 
 go 1.21
 

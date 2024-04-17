@@ -6,13 +6,13 @@ The below is guidance for establishing a development environment and building/te
 
 ## Prerequisites
 
-This Operator is developed using the [Operator SDK](https://sdk.operatorframework.io/) Framework.
+This Operator is developed using the [Operator SDK](https://sdk.operatorframework.io/) Framework.  It is recommended to walk-through the [Operator SDK Go tutorial](https://sdk.operatorframework.io/docs/building-operators/golang/tutorial/) to familiarise yourself with the process.
 
 - Access to a Kubernetes v1.28.8+ cluster.
 - Access to a Container Registry.
 - kubectl version v1.29.3+.
 - go version v1.21.9+.
-- docker/podman (for podman, make sure the docker command is aliased to podman).
+- docker or podman.  If using docker, alias `podman` to the `docker` binary.
 
 
 ### Kubernetes Cluster
@@ -48,9 +48,9 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
     PODMAN_VERSION=$(podman -v |awk '{print $NF}')
     sudo /usr/local/Cellar/podman/${PODMAN_VERSION}/bin/podman-mac-helper install
     ```
-3. Alias `docker` to `podman`
+3. Symlink `docker` to `podman`; this is for `kind load docker-image` to work
     ```bash
-    alias docker='podman'
+    ln -s /usr/local/bin/podman /usr/local/bin/docker
     ```
 3. Create a `podman` machine:
     ```bash
@@ -69,4 +69,14 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
 
 ### Workflow
 
+```bash
+make generate
+make manifests
+make docker-build
+kind load docker-image localhost/oracle-ords-controller:0.0.1 -n ords-operator
+```
 
+```bash
+make undeploy
+make deploy
+```
