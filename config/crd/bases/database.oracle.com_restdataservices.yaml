@@ -95,14 +95,16 @@ spec:
                       browser.
                     type: boolean
                   errorResponseFormat:
+                    default: auto
                     description: Specifies how the HTTP error responses must be formatted.
                       html - Force all responses to be in HTML format json - Force
                       all responses to be in JSON format auto - Automatically determines
                       most appropriate format for the request (default).
                     type: string
                   featureGrahpqlMaxNestingDepth:
+                    default: 5
                     description: Specifies the maximum join nesting depth limit for
-                      GraphQL queries. Defaults to 5.
+                      GraphQL queries.
                     format: int32
                     type: integer
                   icapPort:
@@ -134,9 +136,9 @@ spec:
                       header is commonly referred to as the ECID (Entity Context ID).
                     type: string
                   securityCredentialsAttempts:
+                    default: -1
                     description: Specifies the maximum number of unsuccessful password
                       attempts allowed. Enabled by setting a positive integer value.
-                      Defaults to -1.
                     format: int32
                     type: integer
                   securityCredentialsLockTime:
@@ -160,28 +162,31 @@ spec:
                       a browser.
                     type: string
                   securityMaxEntries:
+                    default: 2000
                     description: Specifies the maximum number of cached procedure
                       validations. Set this value to 0 to force the validation procedure
-                      to be invoked on each request. Defaults to 2000.
+                      to be invoked on each request.
                     format: int32
                     type: integer
                   securityVerifySSL:
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
                   standaloneBinds:
+                    default: 0.0.0.0
                     description: Specifies the comma separated list of host names
                       or IP addresses to identify a specific network interface on
-                      which to listen. Default 0.0.0.0
+                      which to listen.
                     type: string
                   standaloneHttpPort:
-                    description: 'Specifies the HTTP listen port. Default: 8080'
+                    description: Specifies the HTTP listen port. / +kubebuilder:default:=8080
                     format: int32
                     type: integer
                   standaloneHttpsHost:
                     description: Specifies the SSL certificate hostname.
                     type: string
                   standaloneHttpsPort:
-                    description: 'Specifies the HTTPS listen port. Default: 8443'
+                    default: 8443
+                    description: Specifies the HTTPS listen port.
                     format: int32
                     type: integer
                   standaloneStopTimeout:
@@ -218,19 +223,15 @@ spec:
                       description: Specifies a configuration setting for AutoUpgrade
                         REST API log location.
                       type: string
-                    DbAdminUser:
-                      description: Specifies the username for the database account
-                        that ORDS uses for administration operations in the database.
-                      type: string
                     DbCredentialsSource:
+                      default: pool
                       description: Specifies the source for database credentials when
                         creating a direct connection for running SQL statements. Value
                         can be one of pool or request. If the value is pool, then
                         the credentials defined in this pool is used to create a JDBC
                         connection. If the value request is used, then the credentials
                         in the request is used to create a JDBC connection and if
-                        successful, grants the requestor SQL Developer role. Default
-                        value is pool.
+                        successful, grants the requestor SQL Developer role.
                       type: string
                     DbPort:
                       description: Specifies the database listener port.
@@ -245,8 +246,8 @@ spec:
                         the database user must get the SQL Administrator role.
                       type: string
                     JdbcMinLimit:
-                      description: 'Specifies the minimum number of connections. Default:
-                        2'
+                      default: 2
+                      description: Specifies the minimum number of connections.
                       format: int32
                       type: integer
                     PlsqlGatewayMode:
@@ -258,11 +259,12 @@ spec:
                         to whom to proxy.
                       type: string
                     SodaMaxLimit:
-                      description: 'When using the SODA REST API, specifies the maximum
+                      default: 1000
+                      description: When using the SODA REST API, specifies the maximum
                         number of documents that will be returned for a GET request
                         on a collection URL, regardless of any limit specified in
                         the URL. Must be a positive integer, or "unlimited" for no
-                        limit. Default: 1000'
+                        limit.
                       type: string
                     apexSecurityAdministratorRoles:
                       description: Specifies the comma delimited list of additional
@@ -272,10 +274,54 @@ spec:
                       description: Specifies a configuration setting to enable AutoUpgrade
                         REST API features.
                       type: boolean
-                    dbCdbAdminUser:
-                      description: Specifies the username for the database account
-                        that ORDS uses for the Pluggable Database Lifecycle Management.
-                      type: string
+                    dbAdminAuthSecret:
+                      description: Specifies the Secret with the dbAdminUser (SYS
+                        AS SYSDBA) and dbAdminPassword values for the database account
+                        that ORDS uses for administration operations in the database.
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                        usernameKey:
+                          default: username
+                          type: string
+                      required:
+                      - secretName
+                      type: object
+                    dbAuthSecret:
+                      description: Specifies the Secret with the dbUser (ORDS_PUBLIC_USER)
+                        and dbPassword values for the connection.
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                        usernameKey:
+                          default: username
+                          type: string
+                      required:
+                      - secretName
+                      type: object
+                    dbCdbAdminAuthSecret:
+                      description: Specifies the Secret with the dbCdbAdminUser (SYS
+                        AS SYSDBA) and dbCdbAdminPassword values Specifies the username
+                        for the database account that ORDS uses for the Pluggable
+                        Database Lifecycle Management.
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                        usernameKey:
+                          default: username
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     dbConnectionType:
                       description: 'The type of connection. Supported values: basic,
                         tns, customurl'
@@ -311,10 +357,6 @@ spec:
                     dbTnsDirectory:
                       description: The directory location of your tnsnames.ora file.
                       type: string
-                    dbUsername:
-                      description: Specifies the name of the database user for the
-                        connection.
-                      type: string
                     dbWalletZip:
                       description: Specifies the wallet archive (provided in BASE64
                         encoding) containing connection details for the pool.
@@ -340,57 +382,63 @@ spec:
                         to exclude when initializing an Oracle Web Agent environment.
                       type: string
                     jdbCleanupMode:
+                      default: RECYCLE
                       description: Specifies how a pooled JDBC connection and corresponding
                         database session, is released when a request has been processed.
-                        Default value is RECYCLE
                       type: string
                     jdbcAuthEnabled:
+                      default: false
                       description: Specifies if the PL/SQL Gateway calls can be authenticated
                         using database users. If the value is true then this feature
                         is enabled. If the value is false, then this feature is disabled.
-                        The default value is false. Oracle recommends not to use this
-                        feature. This feature used only to facilitate customers migrating
-                        from mod_plsql.
+                        Oracle recommends not to use this feature. This feature used
+                        only to facilitate customers migrating from mod_plsql.
                       type: boolean
                     jdbcDriverType:
                       description: 'Specifies the JDBC driver type. Supported values:
-                        thin, oci8 Default: thin'
+                        thin, oci8 / +kubebuilder:default:="thin"'
                       type: string
                     jdbcInactivityTimeout:
+                      default: 1800
                       description: Specifies how long an available connection can
                         remain idle before it is closed. The inactivity connection
-                        timeout is in seconds. Defaults to 1800.
+                        timeout is in seconds.
                       format: int32
                       type: integer
                     jdbcInitialLimit:
+                      default: 10
                       description: Specifies the initial size for the number of connections
-                        that will be created. Defaults to 10. (The default is low,
-                        and should probably be set higher in most production environments.)
+                        that will be created. The default is low, and should probably
+                        be set higher in most production environments.
                       format: int32
                       type: integer
                     jdbcMaxConnectionReuseCount:
+                      default: 1000
                       description: Specifies the maximum number of times to reuse
                         a connection before it is discarded and replaced with a new
-                        connection. Defaults to 1000.
+                        connection.
                       format: int32
                       type: integer
                     jdbcMaxLimit:
-                      description: Specifies the maximum number of connections. Defaults
-                        to 10. (Might be too low for some production environments.)
+                      default: 10
+                      description: Specifies the maximum number of connections. Might
+                        be too low for some production environments.
                       format: int32
                       type: integer
                     jdbcMaxStatementsLimit:
-                      description: 'Specifies the maximum number of statements to
-                        cache for each connection. Default: 10'
+                      default: 10
+                      description: Specifies the maximum number of statements to cache
+                        for each connection.
                       format: int32
                       type: integer
                     jdbcStatementTimeout:
-                      description: 'Specifies a timeout period on a statement. An
-                        abnormally long running query or script, executed by a request,
-                        may leave it in a hanging state unless a timeout is set on
-                        the statement. Setting a timeout on the statement ensures
-                        that all the queries automatically timeout if they are not
-                        completed within the specified time period. Default: 900'
+                      default: 900
+                      description: Specifies a timeout period on a statement. An abnormally
+                        long running query or script, executed by a request, may leave
+                        it in a hanging state unless a timeout is set on the statement.
+                        Setting a timeout on the statement ensures that all the queries
+                        automatically timeout if they are not completed within the
+                        specified time period.
                       format: int32
                       type: integer
                     miscDefaultPage:
@@ -398,12 +446,12 @@ spec:
                         REST Data Services Landing Page.
                       type: string
                     miscPaginationMaxRows:
-                      description: 'Specifies the maximum number of rows that will
+                      default: 10000
+                      description: Specifies the maximum number of rows that will
                         be returned from a query when processing a RESTful service
                         and that will be returned from a nested cursor in a result
                         set. Affects all RESTful services generated through a SQL
-                        query, regardless of whether the resource is paginated. Default:
-                        10000'
+                        query, regardless of whether the resource is paginated.
                       format: int32
                       type: integer
                     owaTraceSql:
@@ -412,7 +460,7 @@ spec:
                         log.
                       type: boolean
                     poolName:
-                      description: Define the Pool Name
+                      description: Specifies the Pool Name
                       type: string
                     procedurePostProcess:
                       description: Specifies the procedure name(s) to execute after
@@ -435,8 +483,9 @@ spec:
                         is returned.
                       type: string
                     restEnabledSqlActive:
-                      description: 'Specifies whether the REST-Enabled SQL service
-                        is active. Default: false'
+                      default: false
+                      description: Specifies whether the REST-Enabled SQL service
+                        is active.
                       type: boolean
                     securityJwksConnectionTimeout:
                       description: Specifies the maximum amount of time before timing-out
@@ -472,8 +521,9 @@ spec:
                       format: int64
                       type: integer
                     securityJwtProfileEnabled:
+                      default: true
                       description: 'Specifies whether the JWT Profile authentication
-                        is available. Supported values: Default: true'
+                        is available. Supported values:'
                       type: boolean
                     securityRequestAuthenticationFunction:
                       description: Specifies an authentication function to determine
@@ -491,15 +541,17 @@ spec:
                       type: string
                     securityValidationFunctionType:
                       description: 'Indicates the type of security.requestValidationFunction:
-                        javascript or plsql. Default: plsql'
+                        javascript or plsql. / +kubebuilder:default:="plsql"'
                       type: string
                     sodaDefaultLimit:
-                      description: 'When using the SODA REST API, specifies the default
+                      default: 100
+                      description: When using the SODA REST API, specifies the default
                         number of documents returned for a GET request on a collection
                         when a limit is not specified in the URL. Must be a positive
-                        integer, or "unlimited" for no limit. Default: 100'
+                        integer, or "unlimited" for no limit.
                       type: string
                   required:
+                  - dbAuthSecret
                   - poolName
                   type: object
                 type: array
