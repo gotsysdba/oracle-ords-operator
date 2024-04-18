@@ -52,6 +52,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -105,10 +106,12 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	logr := log.FromContext(ctx)
 	ords := &databasev1.RestDataServices{}
 
+	defer r.Status().Update(ctx, ords)
+
 	// Check if there is an ORDS resource; if not nothing to reconcile
 	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
 		if apierrors.IsNotFound(err) {
-			logr.Info("RestDataServices resource not found")
+			logr.Info("Resource Deleted")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, err
@@ -140,7 +143,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	result, err = r.WorkloadReconcile(ctx, req, ords)
 
-	// Services
+	// Service
+	result, err = r.ServiceReconcile(ctx, req, ords)
+	if result.Requeue || err != nil {
+		return result, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -234,6 +241,16 @@ func (r *RestDataServicesReconciler) DeploymentReconcile(ctx context.Context, re
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
+	}
+
+	definedReplicas := ords.Spec.Replicas
+	if *deploymentType.Spec.Replicas != definedReplicas {
+		logr.Info("Scaling")
+		deploymentType.Spec.Replicas = &definedReplicas
+		if err := r.Update(ctx, deploymentType); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -248,6 +265,16 @@ func (r *RestDataServicesReconciler) StatefulSetReconcile(ctx context.Context, r
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
+	}
+
+	definedReplicas := ords.Spec.Replicas
+	if *statefulSetType.Spec.Replicas != definedReplicas {
+		logr.Info("Scaling")
+		statefulSetType.Spec.Replicas = &definedReplicas
+		if err := r.Update(ctx, statefulSetType); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }
@@ -338,75 +365,33 @@ func (r *RestDataServicesReconciler) DeleteDaemonSet(ctx context.Context, req ct
 	return nil
 }
 
-// func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords *databasev1.RestDataServices) (runtime.Object, error) {
-
-// 	existingDeployment := &appsv1.Deployment{}
-// 	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingDeployment)
-// 	if err != nil && apierrors.IsNotFound(err) {
-// 		logr.Info("Missing Deployment, Creating")
-// 		def, err := r.defDeployment(ctx, ords)
-// 		if err != nil {
-// 			logr.Error(err, "Failed to define new Deployment for RestDataServices")
-// 			condition := metav1.Condition{
-// 				Type: typeAvailable, Status: metav1.ConditionFalse,
-// 				Reason: "RequirementsNotMet", Message: "Deployment does not exist",
-// 			}
-// 			err := r.updateStatus(ctx, req, ords, condition)
-// 			return ctrl.Result{}, err
-// 		}
-// 		if err = r.Create(ctx, def); err != nil {
-// 			logr.Error(err, "Failed creating new Deployment", "Namespace", def.Namespace, "Name", def.Name)
-// 			return ctrl.Result{}, err
-// 		}
-// 		logr.Info("Created Deployment", "Namespace", def.Namespace, "Name", def.Name)
-// 	} else {
-// 		definedReplicas := ords.Spec.Replicas
-// 		if *existingDeployment.Spec.Replicas != definedReplicas {
-// 			logr.Info("Scaling Deployment", "Deployment.Namespace", existingDeployment.Namespace, "Deployment.Name", existingDeployment.Name)
-// 			existingDeployment.Spec.Replicas = &definedReplicas
-// 			if err := r.Update(ctx, existingDeployment); err != nil {
-// 				logr.Error(err, "Failed scaling Deployment", "Namespace", existingDeployment.Namespace, "Name", existingDeployment.Name)
-// 				return ctrl.Result{}, err
-// 			}
-// 		}
-// 	}
-
-// 	/*************************************************
-// 	* Service
-// 	/************************************************/
-// 	existingService := &corev1.Service{}
-// 	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingService)
-// 	if err != nil && apierrors.IsNotFound(err) {
-// 		logr.Info("Missing Service, Creating")
-// 		def, err := r.defService(ctx, ords)
-// 		if err != nil {
-// 			logr.Error(err, "Failed to define new Service for RestDataServices")
-// 			condition := metav1.Condition{
-// 				Type: typeAvailable, Status: metav1.ConditionFalse,
-// 				Reason: "RequirementsNotMet", Message: "Service does not exist",
-// 			}
-// 			err := r.updateStatus(ctx, req, ords, condition)
-// 			return ctrl.Result{}, err
-// 		}
-// 		if err = r.Create(ctx, def); err != nil {
-// 			logr.Error(err, "Failed creating new Service", "Namespace", def.Namespace, "Name", def.Name)
-// 			return ctrl.Result{}, err
-// 		}
-// 		logr.Info("Created Service", "Namespace", def.Namespace, "Name", def.Name)
-// 	} else {
-// 		definedServicePort := ords.Spec.ServicePort
-// 		for _, existingPort := range existingService.Spec.Ports {
-// 			if existingPort.Name == servicePortName {
-// 				if existingPort.Port != definedServicePort {
-// 					existingPort.Port = definedServicePort
-// 					if err := r.Update(ctx, existingService); err != nil {
-// 						logr.Error(err, "Failed reconciling ServicePort", "Namespace", existingService.Namespace, "Name", existingService.Name)
-// 						return ctrl.Result{}, err
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
+/*************************************************
+* Service
+**************************************************/
+func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("ServiceReconcile")
+	serviceType := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, serviceType)
+	if err != nil && apierrors.IsNotFound(err) {
+		def, err := r.defService(ctx, ords)
+		if err = r.Create(ctx, def); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created: " + ords.Name)
+	}
+	definedServicePort := ords.Spec.ServicePort
+	for _, existingPort := range serviceType.Spec.Ports {
+		if existingPort.Name == servicePortName {
+			if existingPort.Port != definedServicePort {
+				existingPort.Port = definedServicePort
+				if err := r.Update(ctx, serviceType); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
+	return ctrl.Result{}, nil
+}
 
 /*************************************************
 * Definers
@@ -754,47 +739,45 @@ func buildVolume(name string) corev1.Volume {
 	}
 }
 
-// // Service
-// func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.Service, error) {
-// 	port := int32(80)
-// 	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-// 		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
-// 	}
-// 	ls := getLabels(ords.Name)
-// 	svc := &corev1.Service{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      ords.Name,
-// 			Namespace: ords.Namespace,
-// 		},
-// 		Spec: corev1.ServiceSpec{
-// 			Selector: ls,
-// 			Ports: []corev1.ServicePort{
-// 				{
-// 					Name:       servicePortName,
-// 					Protocol:   corev1.ProtocolTCP,
-// 					Port:       port,
-// 					TargetPort: intstr.FromString(targetPortName),
-// 				},
-// 			},
-// 		},
-// 	}
-// 	if err := ctrl.SetControllerReference(ords, svc, r.Scheme); err != nil {
-// 		return nil, err
-// 	}
-// 	return svc, nil
-// }
+// Service
+func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.Service, error) {
+	port := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+	labels := getLabels(ords.Name, "service")
+	def := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name,
+			Namespace: ords.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       servicePortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       port,
+					TargetPort: intstr.FromString(targetPortName),
+				},
+			},
+		},
+	}
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
+		return nil, err
+	}
+	return def, nil
+}
 
-/*
-************************************************
-* Definers
-/***********************************************
-*/
+/*************************************************
+* Helpers
+**************************************************/
 func getLabels(name string, component string) map[string]string {
 	return map[string]string{"app.kubernetes.io/name": "ORDS",
 		"app.kubernetes.io/instance":   name,
 		"app.kubernetes.io/component":  component,
 		"app.kubernetes.io/part-of":    "oracle-ords-operator",
-		"app.kubernetes.io/created-by": "controller-manager",
+		"app.kubernetes.io/created-by": "oracle-ords-controller-manager",
 	}
 }
 
