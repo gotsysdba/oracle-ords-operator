@@ -507,9 +507,6 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
-              servicePort:
-                format: int32
-                type: integer
               workloadType:
                 enum:
                 - Deployment

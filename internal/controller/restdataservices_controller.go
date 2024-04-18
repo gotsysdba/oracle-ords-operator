@@ -106,8 +106,6 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	logr := log.FromContext(ctx)
 	ords := &databasev1.RestDataServices{}
 
-	defer r.Status().Update(ctx, ords)
-
 	// Check if there is an ORDS resource; if not nothing to reconcile
 	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -178,6 +176,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + globalConfigName)
+		return ctrl.Result{}, nil
 	}
 	newGlobalConfigMap, err := r.defGlobalConfigMap(ctx, ords)
 	if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newGlobalConfigMap.Data) {
@@ -201,6 +200,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 				return ctrl.Result{}, err
 			}
 			logr.Info("Created: " + poolConfigMapName)
+			return ctrl.Result{}, nil
 		}
 		newPoolConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
 		if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newPoolConfigMap.Data) {
@@ -211,6 +211,8 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 			return ctrl.Result{}, nil
 		}
 	}
+
+	// Delete undefined pools
 	configMapList := &corev1.ConfigMapList{}
 	if err := r.List(ctx, configMapList, client.InNamespace(req.Namespace),
 		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": poolComponentLabel}),
@@ -246,11 +248,11 @@ func (r *RestDataServicesReconciler) DeploymentReconcile(ctx context.Context, re
 
 	definedReplicas := ords.Spec.Replicas
 	if *deploymentType.Spec.Replicas != definedReplicas {
-		logr.Info("Scaling")
 		deploymentType.Spec.Replicas = &definedReplicas
 		if err := r.Update(ctx, deploymentType); err != nil {
 			return ctrl.Result{}, err
 		}
+		logr.Info("Scaled")
 	}
 	return ctrl.Result{}, nil
 }
@@ -270,11 +272,11 @@ func (r *RestDataServicesReconciler) StatefulSetReconcile(ctx context.Context, r
 
 	definedReplicas := ords.Spec.Replicas
 	if *statefulSetType.Spec.Replicas != definedReplicas {
-		logr.Info("Scaling")
 		statefulSetType.Spec.Replicas = &definedReplicas
 		if err := r.Update(ctx, statefulSetType); err != nil {
 			return ctrl.Result{}, err
 		}
+		logr.Info("Scaled")
 	}
 	return ctrl.Result{}, nil
 }
@@ -365,11 +367,10 @@ func (r *RestDataServicesReconciler) DeleteDaemonSet(ctx context.Context, req ct
 	return nil
 }
 
-/*************************************************
-* Service
-**************************************************/
+// Service
 func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
 	logr := log.FromContext(ctx).WithName("ServiceReconcile")
+
 	serviceType := &corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, serviceType)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -378,16 +379,22 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, req c
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
 	}
-	definedServicePort := ords.Spec.ServicePort
+
+	definedServicePort := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		definedServicePort = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
 	for _, existingPort := range serviceType.Spec.Ports {
 		if existingPort.Name == servicePortName {
 			if existingPort.Port != definedServicePort {
-				existingPort.Port = definedServicePort
 				if err := r.Update(ctx, serviceType); err != nil {
 					return ctrl.Result{}, err
 				}
+				logr.Info("Reconciled: " + existingPort.Name)
 			}
+			return ctrl.Result{}, nil
 		}
 	}
 	return ctrl.Result{}, nil
@@ -778,6 +785,7 @@ func getLabels(name string, component string) map[string]string {
 		"app.kubernetes.io/component":  component,
 		"app.kubernetes.io/part-of":    "oracle-ords-operator",
 		"app.kubernetes.io/created-by": "oracle-ords-controller-manager",
+		"oracle.com/operator-filter":   "oracle-ords-operator",
 	}
 }
 
