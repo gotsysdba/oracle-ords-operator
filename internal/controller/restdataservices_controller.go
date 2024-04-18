@@ -40,16 +40,15 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
-
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,16 +65,19 @@ const RestDataServicesFinalizer = "database.oracle.com/restdataservicesfinalizer
 // Definitions to manage status conditions
 const (
 	typeAvailable = "Available"
+	typeModified  = "Modified" //requires pod restart
 	typeDegraded  = "Degraded"
 )
 
 // Definitions of Standards
 const (
-	ordsConfigBase    = "/opt/oracle/standalone/config"
-	servicePortName   = "sa-svc-port"
-	targetPortName    = "sa-pod-port"
-	globalConfigName  = "sa-settings-global"
-	poolConfigPreName = "sa-settings-" // Append PoolName
+	ordsConfigBase       = "/opt/oracle/sa/config"
+	servicePortName      = "sa-svc-port"
+	targetPortName       = "sa-pod-port"
+	globalConfigName     = "sa-settings-global"
+	poolConfigPreName    = "sa-settings-" // Append PoolName
+	poolComponentLabel   = "sa-pool-setting"
+	globalComponentLabel = "sa-global-setting"
 )
 
 // RestDataServicesReconciler reconciles a RestDataServices object
@@ -94,6 +96,10 @@ type RestDataServicesReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=services/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=deployments/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=daemonsets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=statefulsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
 func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -103,229 +109,303 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Check if there is an ORDS resource; if not nothing to reconcile
 	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
 		if apierrors.IsNotFound(err) {
+			logr.Info("Resource Deleted")
 			return ctrl.Result{}, nil
 		}
-		// The CR is not defined... something has gone horribly wrong!!
-		logr.Error(err, "Unable to retrieve an RestDataServices CRD.", "connection", ords)
-		return ctrl.Result{RequeueAfter: time.Minute}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, err
 	}
 
-	// Set the status as Unknown when no status are available
-	if ords.Status.Conditions == nil || len(ords.Status.Conditions) == 0 {
-		condition := metav1.Condition{
-			Type: typeAvailable, Status: metav1.ConditionUnknown,
-			Reason: "Reconciling", Message: "Starting reconciliation",
+	// ConfigMaps
+	result, err := r.ConfigMapReconcile(ctx, req, ords)
+	if result.Requeue || err != nil {
+		return result, err
+	}
+
+	// Workloads
+	switch ords.Spec.WorkloadType {
+	case "StatefulSet":
+		result, err = r.StatefulSetReconcile(ctx, req, ords)
+		if result.Requeue || err != nil {
+			return result, err
 		}
-		err := r.updateStatus(ctx, req, ords, condition)
-		return ctrl.Result{}, err
+	case "DaemonSet":
+		result, err = r.DaemonSetReconcile(ctx, req, ords)
+		if result.Requeue || err != nil {
+			return result, err
+		}
+	default:
+		result, err = r.DeploymentReconcile(ctx, req, ords)
+		if result.Requeue || err != nil {
+			return result, err
+		}
+	}
+	result, err = r.WorkloadReconcile(ctx, req, ords)
+
+	// Service
+	result, err = r.ServiceReconcile(ctx, req, ords)
+	if result.Requeue || err != nil {
+		return result, err
 	}
 
-	/*************************************************
-	* Global ConfigMap
-	/************************************************/
-	existingConfigMap := &corev1.ConfigMap{}
-	err := r.Get(ctx, types.NamespacedName{Name: globalConfigName, Namespace: ords.Namespace}, existingConfigMap)
+	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *RestDataServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&databasev1.RestDataServices{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.StatefulSet{}).
+		Owns(&appsv1.DaemonSet{}).
+		Owns(&corev1.Service{}).
+		Complete(r)
+}
+
+/************************************************
+* ConfigMaps
+*************************************************/
+func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("ConfigMapReconcile")
+	configMapType := &corev1.ConfigMap{}
+	// Global
+	err := r.Get(ctx, types.NamespacedName{Name: globalConfigName, Namespace: ords.Namespace}, configMapType)
 	if err != nil && apierrors.IsNotFound(err) {
-		logr.Info("Missing Global ConfigMap, Creating")
 		def, err := r.defGlobalConfigMap(ctx, ords)
-		if err != nil {
-			logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
-			condition := metav1.Condition{
-				Type: typeAvailable, Status: metav1.ConditionFalse,
-				Reason: "RequirementsNotMet", Message: "Global ConfigMap does not exist",
-			}
-			err := r.updateStatus(ctx, req, ords, condition)
-			return ctrl.Result{}, err
-		}
 		if err = r.Create(ctx, def); err != nil {
-			logr.Error(err, "Failed creating new ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 			return ctrl.Result{}, err
 		}
-		logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
-	} else {
-		logr.Info("Found Global ConfigMap, Reconciling")
-		newConfigMap, err := r.defGlobalConfigMap(ctx, ords)
-		if err != nil {
-			logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
-			condition := metav1.Condition{
-				Type: typeAvailable, Status: metav1.ConditionFalse,
-				Reason: "ResourceFound", Message: "Starting ConfigMap Reconciliation",
-			}
-			err := r.updateStatus(ctx, req, ords, condition)
+		logr.Info("Created: " + globalConfigName)
+		return ctrl.Result{}, nil
+	}
+	newGlobalConfigMap, err := r.defGlobalConfigMap(ctx, ords)
+	if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newGlobalConfigMap.Data) {
+		if err := r.Update(ctx, newGlobalConfigMap); err != nil {
 			return ctrl.Result{}, err
 		}
-		if !equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
-			if err := r.Update(ctx, newConfigMap); err != nil {
-				logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
-				return ctrl.Result{}, err
-			}
-			logr.Info("Updated ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
-			// Update deployment's pod label to trigger pod restart
-			deployment := &appsv1.Deployment{}
-			err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deployment)
-			if err == nil {
-				deployment.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
-				if err := r.Update(ctx, deployment); err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-		}
+		logr.Info("Reconciled: " + globalConfigName)
+		return ctrl.Result{}, nil
 	}
 
-	/*************************************************
-	* Pool ConfigMap
-	/************************************************/
+	// Pools
+	definedPools := make(map[string]bool)
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
 		poolName := ords.Spec.PoolSettings[i].PoolName
 		poolConfigMapName := poolConfigPreName + strings.ToLower(poolName)
-		err = r.Get(ctx, types.NamespacedName{Name: poolConfigMapName, Namespace: ords.Namespace}, existingConfigMap)
+		definedPools[poolConfigMapName] = true
+		err = r.Get(ctx, types.NamespacedName{Name: poolConfigMapName, Namespace: ords.Namespace}, configMapType)
 		if err != nil && apierrors.IsNotFound(err) {
-			logr.Info("Missing Pool ConfigMap, Creating")
 			def, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
-			if err != nil {
-				logr.Error(err, "Failed to define new ConfigMap for RestDataServices")
-				condition := metav1.Condition{
-					Type: typeAvailable, Status: metav1.ConditionFalse,
-					Reason: "RequirementsNotMet", Message: "Global ConfigMap does not exist",
-				}
-				err := r.updateStatus(ctx, req, ords, condition)
-				return ctrl.Result{}, err
-			}
 			if err = r.Create(ctx, def); err != nil {
-				logr.Error(err, "Failed creating new ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
 				return ctrl.Result{}, err
 			}
-			logr.Info("Created ConfigMap", "Namespace", def.Namespace, "Name", def.Name)
-		} else {
-			logr.Info("Found Pool ConfigMap, Reconciling")
-			newConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
-			if err != nil {
-				logr.Error(err, "Failed to define comparable ConfigMap for RestDataServices")
-				condition := metav1.Condition{
-					Type: typeAvailable, Status: metav1.ConditionFalse,
-					Reason: "ResourceFound", Message: "Starting ConfigMap Reconciliation",
-				}
-				err := r.updateStatus(ctx, req, ords, condition)
+			logr.Info("Created: " + poolConfigMapName)
+			return ctrl.Result{}, nil
+		}
+		newPoolConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
+		if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newPoolConfigMap.Data) {
+			if err := r.Update(ctx, newPoolConfigMap); err != nil {
 				return ctrl.Result{}, err
 			}
-			if !equality.Semantic.DeepEqual(existingConfigMap.Data, newConfigMap.Data) {
-				if err := r.Update(ctx, newConfigMap); err != nil {
-					logr.Error(err, "Failed updating ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
-					return ctrl.Result{}, err
-				}
-				logr.Info("Updated ConfigMap", "Namespace", newConfigMap.Namespace, "Name", newConfigMap.Name)
-				// Update deployment's pod label to trigger pod restart
-				deployment := &appsv1.Deployment{}
-				err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deployment)
-				if err == nil {
-					deployment.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
-					if err := r.Update(ctx, deployment); err != nil {
-						return ctrl.Result{}, err
-					}
-				}
-			}
+			logr.Info("Reconciled: " + poolConfigMapName)
+			return ctrl.Result{}, nil
 		}
 	}
 
-	/*************************************************
-	* Deployment
-	/************************************************/
-	existingDeployment := &appsv1.Deployment{}
-	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingDeployment)
-	if err != nil && apierrors.IsNotFound(err) {
-		logr.Info("Missing Deployment, Creating")
-		def, err := r.defDeployment(ctx, ords)
-		if err != nil {
-			logr.Error(err, "Failed to define new Deployment for RestDataServices")
-			condition := metav1.Condition{
-				Type: typeAvailable, Status: metav1.ConditionFalse,
-				Reason: "RequirementsNotMet", Message: "Deployment does not exist",
-			}
-			err := r.updateStatus(ctx, req, ords, condition)
-			return ctrl.Result{}, err
-		}
-		if err = r.Create(ctx, def); err != nil {
-			logr.Error(err, "Failed creating new Deployment", "Namespace", def.Namespace, "Name", def.Name)
-			return ctrl.Result{}, err
-		}
-		logr.Info("Created Deployment", "Namespace", def.Namespace, "Name", def.Name)
-	} else {
-		definedReplicas := ords.Spec.Replicas
-		if *existingDeployment.Spec.Replicas != definedReplicas {
-			logr.Info("Scaling Deployment", "Deployment.Namespace", existingDeployment.Namespace, "Deployment.Name", existingDeployment.Name)
-			existingDeployment.Spec.Replicas = &definedReplicas
-			if err := r.Update(ctx, existingDeployment); err != nil {
-				logr.Error(err, "Failed scaling Deployment", "Namespace", existingDeployment.Namespace, "Name", existingDeployment.Name)
+	// Delete undefined pools
+	configMapList := &corev1.ConfigMapList{}
+	if err := r.List(ctx, configMapList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": poolComponentLabel}),
+	); err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, configMapType := range configMapList.Items {
+		if _, exists := definedPools[configMapType.Name]; !exists {
+			if err := r.Delete(ctx, &configMapType); err != nil {
 				return ctrl.Result{}, err
 			}
+			logr.Info("Deleted: " + configMapType.Name)
 		}
 	}
-
-	/*************************************************
-	* Service
-	/************************************************/
-	existingService := &corev1.Service{}
-	err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, existingService)
-	if err != nil && apierrors.IsNotFound(err) {
-		logr.Info("Missing Service, Creating")
-		def, err := r.defService(ctx, ords)
-		if err != nil {
-			logr.Error(err, "Failed to define new Service for RestDataServices")
-			condition := metav1.Condition{
-				Type: typeAvailable, Status: metav1.ConditionFalse,
-				Reason: "RequirementsNotMet", Message: "Service does not exist",
-			}
-			err := r.updateStatus(ctx, req, ords, condition)
-			return ctrl.Result{}, err
-		}
-		if err = r.Create(ctx, def); err != nil {
-			logr.Error(err, "Failed creating new Service", "Namespace", def.Namespace, "Name", def.Name)
-			return ctrl.Result{}, err
-		}
-		logr.Info("Created Service", "Namespace", def.Namespace, "Name", def.Name)
-	} else {
-		definedServicePort := ords.Spec.ServicePort
-		for _, existingPort := range existingService.Spec.Ports {
-			if existingPort.Name == servicePortName {
-				if existingPort.Port != definedServicePort {
-					existingPort.Port = definedServicePort
-					if err := r.Update(ctx, existingService); err != nil {
-						logr.Error(err, "Failed reconciling ServicePort", "Namespace", existingService.Namespace, "Name", existingService.Name)
-						return ctrl.Result{}, err
-					}
-				}
-			}
-		}
-	}
-
-	// Set CR Status
-	condition := metav1.Condition{Type: typeAvailable, Status: metav1.ConditionTrue,
-		Reason: "Succeeded", Message: fmt.Sprintf("Resource (%s) created successfully", ords.Name)}
-	err = r.updateStatus(ctx, req, ords, condition)
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
-/*************************************************
-* Helpers
-/************************************************/
-// UpdateStatus
-func (r *RestDataServicesReconciler) updateStatus(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, condition metav1.Condition) error {
-	logr := log.FromContext(ctx).WithName("updateStatus")
-	meta.SetStatusCondition(&ords.Status.Conditions, condition)
-	if err := r.Status().Update(ctx, ords); err != nil {
-		logr.Error(err, "Failed to update RestDataServices status")
+/************************************************
+* Workloads
+*************************************************/
+func (r *RestDataServicesReconciler) DeploymentReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("DeploymentReconcile")
+	deploymentType := &appsv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, deploymentType)
+	if err != nil && apierrors.IsNotFound(err) {
+		def, err := r.defDeployment(ctx, ords)
+		if err = r.Create(ctx, def); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
+	}
+
+	definedReplicas := ords.Spec.Replicas
+	if *deploymentType.Spec.Replicas != definedReplicas {
+		deploymentType.Spec.Replicas = &definedReplicas
+		if err := r.Update(ctx, deploymentType); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Scaled")
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *RestDataServicesReconciler) StatefulSetReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("StatefulSetReconcile")
+	statefulSetType := &appsv1.StatefulSet{}
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, statefulSetType)
+	if err != nil && apierrors.IsNotFound(err) {
+		def, err := r.defStatefulSet(ctx, ords)
+		if err = r.Create(ctx, def); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
+	}
+
+	definedReplicas := ords.Spec.Replicas
+	if *statefulSetType.Spec.Replicas != definedReplicas {
+		statefulSetType.Spec.Replicas = &definedReplicas
+		if err := r.Update(ctx, statefulSetType); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Scaled")
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *RestDataServicesReconciler) DaemonSetReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("DaemonSetReconcile")
+	daemonSetType := &appsv1.DaemonSet{}
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, daemonSetType)
+	if err != nil && apierrors.IsNotFound(err) {
+		def, err := r.defDaemonSet(ctx, ords)
+		if err = r.Create(ctx, def); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created: " + ords.Name)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	deployErr := error(nil)
+	dsErr := error(nil)
+	stsErr := error(nil)
+	switch ords.Spec.WorkloadType {
+	case "StatefulSet":
+		deployErr = r.DeleteDeployment(ctx, req, ords)
+		dsErr = r.DeleteDaemonSet(ctx, req, ords)
+	case "DaemonSet":
+		deployErr = r.DeleteDeployment(ctx, req, ords)
+		stsErr = r.DeleteStatefulSet(ctx, req, ords)
+	default:
+		dsErr = r.DeleteDaemonSet(ctx, req, ords)
+		stsErr = r.DeleteStatefulSet(ctx, req, ords)
+	}
+	if deployErr != nil || dsErr != nil || stsErr != nil {
+		return ctrl.Result{}, errors.New("unable to cleanup workloads")
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *RestDataServicesReconciler) DeleteDeployment(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) error {
+	logr := log.FromContext(ctx).WithName("DeleteDeployment")
+	deploymentList := &appsv1.DeploymentList{}
+	if err := r.List(ctx, deploymentList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+	); err != nil {
 		return err
 	}
-	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
-		logr.Error(err, "Failed to re-fetch RestDataServices")
-		return err
+	for _, deploymentType := range deploymentList.Items {
+		if err := r.Delete(ctx, &deploymentType); err != nil {
+			return err
+		}
+		logr.Info("Deleted: " + deploymentType.Name)
 	}
 	return nil
 }
 
+func (r *RestDataServicesReconciler) DeleteStatefulSet(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) error {
+	logr := log.FromContext(ctx).WithName("StatefulSet")
+	statefulSetList := &appsv1.StatefulSetList{}
+	if err := r.List(ctx, statefulSetList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+	); err != nil {
+		return err
+	}
+	for _, statefulSetType := range statefulSetList.Items {
+		if err := r.Delete(ctx, &statefulSetType); err != nil {
+			return err
+		}
+		logr.Info("Deleted: " + statefulSetType.Name)
+	}
+	return nil
+}
+
+func (r *RestDataServicesReconciler) DeleteDaemonSet(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) error {
+	logr := log.FromContext(ctx).WithName("DeleteDaemonSet")
+	daemonSetList := &appsv1.DaemonSetList{}
+	if err := r.List(ctx, daemonSetList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+	); err != nil {
+		return err
+	}
+	for _, daemonSetType := range daemonSetList.Items {
+		if err := r.Delete(ctx, &daemonSetType); err != nil {
+			return err
+		}
+		logr.Info("Deleted: " + daemonSetType.Name)
+	}
+	return nil
+}
+
+// Service
+func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
+	logr := log.FromContext(ctx).WithName("ServiceReconcile")
+
+	serviceType := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, serviceType)
+	if err != nil && apierrors.IsNotFound(err) {
+		def, err := r.defService(ctx, ords)
+		if err = r.Create(ctx, def); err != nil {
+			return ctrl.Result{}, err
+		}
+		logr.Info("Created: " + ords.Name)
+		return ctrl.Result{}, nil
+	}
+
+	definedServicePort := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		definedServicePort = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+	for _, existingPort := range serviceType.Spec.Ports {
+		if existingPort.Name == servicePortName {
+			if existingPort.Port != definedServicePort {
+				if err := r.Update(ctx, serviceType); err != nil {
+					return ctrl.Result{}, err
+				}
+				logr.Info("Reconciled: " + existingPort.Name)
+			}
+			return ctrl.Result{}, nil
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+/*************************************************
+* Definers
+/************************************************/
 // Global ConfigMap
 func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.ConfigMap, error) {
-	ls := getLabels(ords.Name)
+	labels := getLabels(ords.Name, globalComponentLabel)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -334,7 +414,7 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      globalConfigName,
 			Namespace: ords.Namespace,
-			Labels:    ls,
+			Labels:    labels,
 		},
 		Data: map[string]string{
 			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
@@ -393,7 +473,7 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 
 // Pool ConfigMaps
 func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolConfigName string, i int) (*corev1.ConfigMap, error) {
-	ls := getLabels(ords.Name)
+	labels := getLabels(ords.Name, poolComponentLabel)
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -402,7 +482,7 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      poolConfigName,
 			Namespace: ords.Namespace,
-			Labels:    ls,
+			Labels:    labels,
 		},
 		Data: map[string]string{
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
@@ -477,35 +557,98 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 	return def, nil
 }
 
-// Deployments
+// Workloads
 func (r *RestDataServicesReconciler) defDeployment(ctx context.Context, ords *databasev1.RestDataServices) (*appsv1.Deployment, error) {
-	ls := getLabels(ords.Name)
-	podTemplate := defPods(ords)
+	labels := getLabels(ords.Name, "workload")
 	replicas := ords.Spec.Replicas
+	podTemplate := defPods(ords)
 
-	dep := &appsv1.Deployment{
+	def := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ords.Name,
 			Namespace: ords.Namespace,
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: ls,
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: ls,
+					Labels: labels,
 				},
 				Spec: podTemplate,
 			},
 		},
 	}
 
-	if err := ctrl.SetControllerReference(ords, dep, r.Scheme); err != nil {
+	// Set the ownerRef
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
 		return nil, err
 	}
-	return dep, nil
+	return def, nil
+}
+
+func (r *RestDataServicesReconciler) defStatefulSet(ctx context.Context, ords *databasev1.RestDataServices) (*appsv1.StatefulSet, error) {
+	labels := getLabels(ords.Name, "workload")
+	replicas := ords.Spec.Replicas
+	podTemplate := defPods(ords)
+
+	def := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name,
+			Namespace: ords.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: podTemplate,
+			},
+		},
+	}
+
+	// Set the ownerRef
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
+		return nil, err
+	}
+	return def, nil
+}
+
+func (r *RestDataServicesReconciler) defDaemonSet(ctx context.Context, ords *databasev1.RestDataServices) (*appsv1.DaemonSet, error) {
+	labels := getLabels(ords.Name, "workload")
+	podTemplate := defPods(ords)
+	def := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ords.Name,
+			Namespace: ords.Namespace,
+			Labels:    labels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: podTemplate,
+			},
+		},
+	}
+
+	// Set the ownerRef
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
+		return nil, err
+	}
+	return def, nil
 }
 
 // Pods
@@ -609,14 +752,14 @@ func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *datab
 	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
 		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
 	}
-	ls := getLabels(ords.Name)
-	svc := &corev1.Service{
+	labels := getLabels(ords.Name, "service")
+	def := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ords.Name,
 			Namespace: ords.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: ls,
+			Selector: labels,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       servicePortName,
@@ -627,13 +770,25 @@ func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *datab
 			},
 		},
 	}
-	if err := ctrl.SetControllerReference(ords, svc, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
 		return nil, err
 	}
-	return svc, nil
+	return def, nil
 }
 
-// Helpers
+/*************************************************
+* Helpers
+**************************************************/
+func getLabels(name string, component string) map[string]string {
+	return map[string]string{"app.kubernetes.io/name": "ORDS",
+		"app.kubernetes.io/instance":   name,
+		"app.kubernetes.io/component":  component,
+		"app.kubernetes.io/part-of":    "oracle-ords-operator",
+		"app.kubernetes.io/created-by": "oracle-ords-controller-manager",
+		"oracle.com/operator-filter":   "oracle-ords-operator",
+	}
+}
+
 func conditionalEntry(key string, value interface{}) string {
 	switch v := value.(type) {
 	case nil:
@@ -658,22 +813,4 @@ func conditionalEntry(key string, value interface{}) string {
 		return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, v)
 	}
 	return ""
-}
-
-func getLabels(name string) map[string]string {
-	return map[string]string{"app.kubernetes.io/name": "ORDS",
-		"app.kubernetes.io/instance":   name,
-		"app.kubernetes.io/part-of":    "oracle-ords-operator",
-		"app.kubernetes.io/created-by": "controller-manager",
-	}
-}
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *RestDataServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&databasev1.RestDataServices{}).
-		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.Service{}).
-		Complete(r)
 }

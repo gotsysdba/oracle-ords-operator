@@ -48,10 +48,12 @@ import (
 // RestDataServicesSpec defines the desired state of RestDataServices
 // +kubebuilder:resource:shortName="ords"
 type RestDataServicesSpec struct {
+	// +kubebuilder:validation:Enum=Deployment;StatefulSet;DaemonSet
 	WorkloadType string `json:"workloadType,omitempty"`
 	// +kubebuilder:validation:Minimum=1
-	Replicas         int32             `json:"replicas,omitempty"`
-	ServicePort      int32             `json:"servicePort,omitempty" protobuf:"varint,3,opt,name=serviceport"`
+	Replicas int32 `json:"replicas,omitempty"`
+	// Specifies whether to restart pods when Global or Pool configurations change
+	AutoRestart      bool              `json:"autoRestart,omitempty"`
 	Image            string            `json:"image" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`

@@ -34,6 +34,10 @@ spec:
           spec:
             description: RestDataServicesSpec defines the desired state of RestDataServices
             properties:
+              autoRestart:
+                description: Specifies whether to restart pods when Global or Pool
+                  configurations change
+                type: boolean
               globalSettings:
                 description: Contains settings that are configured across the entire
                   ORDS instance.
@@ -503,10 +507,11 @@ spec:
                 format: int32
                 minimum: 1
                 type: integer
-              servicePort:
-                format: int32
-                type: integer
               workloadType:
+                enum:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
                 type: string
             required:
             - globalSettings
