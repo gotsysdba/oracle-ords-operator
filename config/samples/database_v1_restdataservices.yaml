@@ -17,4 +17,7 @@ spec:
     standaloneHttpPort: 8082
   poolSettings:
     - poolName: Pool1
-      ApexSecurityUserRoles: "testing2"
+      dbAuthSecret:
+        secretName:  db-auth
+        usernameKey: username
+        passwordKey: password

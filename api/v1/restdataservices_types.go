@@ -490,7 +490,6 @@ type PoolSettings struct {
 }
 
 // Defines the secret containing Username/Password mapped to secretKey
-// Replaces PoolSettings: DbUsername, DbPassword
 type UsernamePasswordSecret struct {
 	SecretName string `json:"secretName"`
 	// +kubebuilder:default:="username"

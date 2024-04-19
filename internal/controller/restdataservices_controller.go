@@ -474,6 +474,22 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 // Pool ConfigMaps
 func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolConfigName string, i int) (*corev1.ConfigMap, error) {
 	labels := getLabels(ords.Name, poolComponentLabel)
+
+	// Get Usernames from Secrets
+	err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbAuthSecret.SecretName, Namespace: n.Namespace}, DbUsername)
+
+	if ords.Spec.PoolSettings[i].DbAdminAuthSecret.SecretName != nil {
+		err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbAdminAuthSecret.SecretName, Namespace: n.Namespace}, DbAdminUsername)
+	}
+
+	if ords.Spec.PoolSettings[i].DbCdbAdminAuthSecret.SecretName != nil {
+		err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbCdbAdminAuthSecret.SecretName, Namespace: n.Namespace}, DbCdbAdminUsername)
+	}
+
+	DbUsername := ""
+	DbAdminUsername := ""
+	DbCdbAdminUsername := ""
+
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -488,14 +504,15 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
+				conditionalEntry("db.username", DbUsername) +
+				conditionalEntry("db.adminUser", DbAdminUsername) +
+				conditionalEntry("db.cdb.adminUser", DbCdbAdminUsername) +
 				conditionalEntry("apex.security.administrator.roles", ords.Spec.PoolSettings[i].ApexSecurityAdministratorRoles) +
 				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings[i].ApexSecurityUserRoles) +
 				conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[i].AutoupgradeApiAulocation) +
 				conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings[i].AutoupgradeApiEnabled) +
 				conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings[i].AutoupgradeApiJvmlocation) +
 				conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings[i].AutoupgradeApiLoglocation) +
-				conditionalEntry("db.adminUser", ords.Spec.PoolSettings[i].DbAdminUser) +
-				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings[i].DbCdbAdminUser) +
 				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings[i].DbCredentialsSource) +
 				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings[i].DbPoolDestroyTimeout) +
 				conditionalEntry("db.wallet.zip", ords.Spec.PoolSettings[i].DbWalletZip) +
@@ -526,7 +543,6 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 				conditionalEntry("db.sid", ords.Spec.PoolSettings[i].DbSid) +
 				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings[i].DbTnsAliasName) +
 				conditionalEntry("db.tnsDirectory", ords.Spec.PoolSettings[i].DbTnsDirectory) +
-				conditionalEntry("db.username", ords.Spec.PoolSettings[i].DbUsername) +
 				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings[i].JdbcDriverType) +
 				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings[i].JdbcInactivityTimeout) +
 				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings[i].JdbcInitialLimit) +
