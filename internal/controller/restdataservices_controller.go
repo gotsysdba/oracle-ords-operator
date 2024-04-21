@@ -80,6 +80,9 @@ const (
 	globalComponentLabel = "sa-global-setting"
 )
 
+// Trigger a restart of Pods on Config Changes
+var restartPods bool = false
+
 // RestDataServicesReconciler reconciles a RestDataServices object
 type RestDataServicesReconciler struct {
 	client.Client
@@ -179,12 +182,18 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 		if err = r.Create(ctx, def); err != nil {
 			return ctrl.Result{}, err
 		}
+		if ords.Spec.AutoRestart {
+			restartPods = true
+		}
 		logr.Info("Created: " + globalConfigName)
 	} else {
 		newGlobalConfigMap, err := r.defGlobalConfigMap(ctx, ords)
 		if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newGlobalConfigMap.Data) {
 			if err := r.Update(ctx, newGlobalConfigMap); err != nil {
 				return ctrl.Result{}, err
+			}
+			if ords.Spec.AutoRestart {
+				restartPods = true
 			}
 			logr.Info("Reconciled: " + globalConfigName)
 		}
@@ -205,12 +214,18 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 			if err = r.Create(ctx, def); err != nil {
 				return ctrl.Result{}, err
 			}
+			if ords.Spec.AutoRestart {
+				restartPods = true
+			}
 			logr.Info("Created: " + poolConfigMapName)
 		} else {
 			newPoolConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
 			if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newPoolConfigMap.Data) {
 				if err := r.Update(ctx, newPoolConfigMap); err != nil {
 					return ctrl.Result{}, err
+				}
+				if ords.Spec.AutoRestart {
+					restartPods = true
 				}
 				logr.Info("Reconciled: " + poolConfigMapName)
 			}
