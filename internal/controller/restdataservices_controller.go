@@ -92,6 +92,8 @@ type RestDataServicesReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+//+kubebuilder:rbac:groups=core,resources=secrets/status,verbs=get
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
@@ -118,6 +120,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// ConfigMaps
 	result, err := r.ConfigMapReconcile(ctx, req, ords)
 	if result.Requeue || err != nil {
+		logr.Info("Returning from ConfigMapReconcile")
 		return result, err
 	}
 
@@ -167,6 +170,7 @@ func (r *RestDataServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
 *************************************************/
 func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
 	logr := log.FromContext(ctx).WithName("ConfigMapReconcile")
+
 	configMapType := &corev1.ConfigMap{}
 	// Global
 	err := r.Get(ctx, types.NamespacedName{Name: globalConfigName, Namespace: ords.Namespace}, configMapType)
@@ -176,15 +180,14 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + globalConfigName)
-		return ctrl.Result{}, nil
-	}
-	newGlobalConfigMap, err := r.defGlobalConfigMap(ctx, ords)
-	if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newGlobalConfigMap.Data) {
-		if err := r.Update(ctx, newGlobalConfigMap); err != nil {
-			return ctrl.Result{}, err
+	} else {
+		newGlobalConfigMap, err := r.defGlobalConfigMap(ctx, ords)
+		if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newGlobalConfigMap.Data) {
+			if err := r.Update(ctx, newGlobalConfigMap); err != nil {
+				return ctrl.Result{}, err
+			}
+			logr.Info("Reconciled: " + globalConfigName)
 		}
-		logr.Info("Reconciled: " + globalConfigName)
-		return ctrl.Result{}, nil
 	}
 
 	// Pools
@@ -196,19 +199,21 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, req
 		err = r.Get(ctx, types.NamespacedName{Name: poolConfigMapName, Namespace: ords.Namespace}, configMapType)
 		if err != nil && apierrors.IsNotFound(err) {
 			def, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 			if err = r.Create(ctx, def); err != nil {
 				return ctrl.Result{}, err
 			}
 			logr.Info("Created: " + poolConfigMapName)
-			return ctrl.Result{}, nil
-		}
-		newPoolConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
-		if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newPoolConfigMap.Data) {
-			if err := r.Update(ctx, newPoolConfigMap); err != nil {
-				return ctrl.Result{}, err
+		} else {
+			newPoolConfigMap, err := r.defPoolConfigMap(ctx, ords, poolConfigMapName, i)
+			if err == nil && !equality.Semantic.DeepEqual(configMapType.Data, newPoolConfigMap.Data) {
+				if err := r.Update(ctx, newPoolConfigMap); err != nil {
+					return ctrl.Result{}, err
+				}
+				logr.Info("Reconciled: " + poolConfigMapName)
 			}
-			logr.Info("Reconciled: " + poolConfigMapName)
-			return ctrl.Result{}, nil
 		}
 	}
 
@@ -420,6 +425,8 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
+				// `  <entry key="standalone.https.cert">/opt/oracle/sa/config/certficate</entry>` + "\n" +
+				// `  <entry key="standalone.https.cert.key">/opt/oracle/sa/config/certficate</entry>` + "\n" +
 				conditionalEntry("cache.metadata.graphql.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataGraphqlExpireAfterAccess) +
 				conditionalEntry("cache.metadata.jwks.enabled", ords.Spec.GlobalSettings.CacheMetadataJwksEnabled) +
 				conditionalEntry("cache.metadata.jwks.initialCapacity", ords.Spec.GlobalSettings.CacheMetadataJwksInitialCapacity) +
@@ -438,8 +445,6 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 				conditionalEntry("standalone.context.path ", ords.Spec.GlobalSettings.StandaloneContextPath) +
 				conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
 				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHttpPort) +
-				conditionalEntry("standalone.https.cert", ords.Spec.GlobalSettings.StandaloneHttpsCert) +
-				conditionalEntry("standalone.https.cert.key", ords.Spec.GlobalSettings.StandaloneHttpsCertKey) +
 				conditionalEntry("standalone.https.host", ords.Spec.GlobalSettings.StandaloneHttpsHost) +
 				conditionalEntry("standalone.https.port", ords.Spec.GlobalSettings.StandaloneHttpsPort) +
 				conditionalEntry("standalone.static.context.path ", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
@@ -475,21 +480,6 @@ func (r *RestDataServicesReconciler) defGlobalConfigMap(ctx context.Context, ord
 func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords *databasev1.RestDataServices, poolConfigName string, i int) (*corev1.ConfigMap, error) {
 	labels := getLabels(ords.Name, poolComponentLabel)
 
-	// Get Usernames from Secrets
-	err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbAuthSecret.SecretName, Namespace: n.Namespace}, DbUsername)
-
-	if ords.Spec.PoolSettings[i].DbAdminAuthSecret.SecretName != nil {
-		err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbAdminAuthSecret.SecretName, Namespace: n.Namespace}, DbAdminUsername)
-	}
-
-	if ords.Spec.PoolSettings[i].DbCdbAdminAuthSecret.SecretName != nil {
-		err := r.Get(ctx, types.NamespacedName{Name: ords.Spec.PoolSettings[i].DbCdbAdminAuthSecret.SecretName, Namespace: n.Namespace}, DbCdbAdminUsername)
-	}
-
-	DbUsername := ""
-	DbAdminUsername := ""
-	DbCdbAdminUsername := ""
-
 	def := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
@@ -504,9 +494,9 @@ func (r *RestDataServicesReconciler) defPoolConfigMap(ctx context.Context, ords 
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
-				conditionalEntry("db.username", DbUsername) +
-				conditionalEntry("db.adminUser", DbAdminUsername) +
-				conditionalEntry("db.cdb.adminUser", DbCdbAdminUsername) +
+				`  <entry key="db.username">` + ords.Spec.PoolSettings[i].DbUsername + `</entry>` + "\n" +
+				conditionalEntry("db.adminUser", ords.Spec.PoolSettings[i].DbAdminUser) +
+				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings[i].DbCdbAdminUser) +
 				conditionalEntry("apex.security.administrator.roles", ords.Spec.PoolSettings[i].ApexSecurityAdministratorRoles) +
 				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings[i].ApexSecurityUserRoles) +
 				conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[i].AutoupgradeApiAulocation) +
@@ -679,6 +669,7 @@ func defPods(ords *databasev1.RestDataServices) corev1.PodSpec {
 		Volumes: specVolumes,
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: &[]bool{true}[0],
+			FSGroup:      &[]int64{54321}[0],
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
@@ -701,7 +692,8 @@ func defPods(ords *databasev1.RestDataServices) corev1.PodSpec {
 				ContainerPort: port,
 				Name:          targetPortName,
 			}},
-			Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
+			Command: []string{"sh", "-c", "tail -f /dev/null"},
+			//Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
 			Env: []corev1.EnvVar{
 				{
 					Name:  "ORDS_CONFIG",
@@ -721,44 +713,64 @@ func defVolumes(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1.Vo
 	var volumeMounts []corev1.VolumeMount
 
 	// Build volume specifications for globalSettings
-	globalVolume := buildVolume(globalConfigName)
-	volumes = append(volumes, globalVolume)
+	standaloneVolume := buildVolume("standalone", "EmptyDir")
+	globalWalletVolume := buildVolume("sa-wallet-global", "EmptyDir")
+	globalConfigVolume := buildVolume(globalConfigName, "ConfigMap")
+	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalConfigVolume)
 
-	globalVolumeMount := buildVolumeMount(globalConfigName, ordsConfigBase+"/global/")
-	volumeMounts = append(volumeMounts, globalVolumeMount)
+	standaloneVolumeMount := buildVolumeMount("standalone", ordsConfigBase+"/global/standalone/", false)
+	globalWalletVolumeMount := buildVolumeMount("sa-wallet-global", ordsConfigBase+"/global/wallet/", false)
+	globalConfigVolumeMount := buildVolumeMount(globalConfigName, ordsConfigBase+"/global/", false)
+	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalConfigVolumeMount)
 
 	// Build volume specifications for each pool in poolSettings
 	for _, pool := range ords.Spec.PoolSettings {
 		poolName := strings.ToLower(pool.PoolName)
 		poolConfigName := poolConfigPreName + poolName
-		poolVolume := buildVolume(poolConfigName)
-		volumes = append(volumes, poolVolume)
+		poolWalletName := "sa-wallet-" + poolName
+		// Volumes
+		poolWalletVolume := buildVolume(poolWalletName, "EmptyDir")
+		poolConfigVolume := buildVolume(poolConfigName, "ConfigMap")
 
-		poolVolumeMount := buildVolumeMount(poolConfigName, ordsConfigBase+"/database/"+poolName+"/")
-		volumeMounts = append(volumeMounts, poolVolumeMount)
-
+		volumes = append(volumes, poolWalletVolume, poolConfigVolume)
+		// VolumeMounts
+		poolWalletVolumeMount := buildVolumeMount(poolWalletName, ordsConfigBase+"/databases/"+poolName+"/wallet", false)
+		poolConfigVolumeMount := buildVolumeMount(poolConfigName, ordsConfigBase+"/databases/"+poolName+"/", false)
+		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
 	}
 	return volumes, volumeMounts
 }
 
-func buildVolumeMount(name string, path string) corev1.VolumeMount {
+func buildVolumeMount(name string, path string, readOnly bool) corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      name,
 		MountPath: path,
-		ReadOnly:  false,
+		ReadOnly:  readOnly,
 	}
 }
 
-func buildVolume(name string) corev1.Volume {
-	return corev1.Volume{
-		Name: name,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: name,
+func buildVolume(name string, source string) corev1.Volume {
+	switch source {
+	case "ConfigMap":
+		return corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: name,
+					},
 				},
 			},
-		},
+		}
+	case "EmptyDir":
+		return corev1.Volume{
+			Name: name,
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		}
+	default:
+		return corev1.Volume{}
 	}
 }
 
@@ -804,6 +816,14 @@ func getLabels(name string, component string) map[string]string {
 		"oracle.com/operator-filter":   "oracle-ords-operator",
 	}
 }
+
+// func (r *RestDataServicesReconciler) getSecretValues(ctx context.Context, namespace string, secretName string, secretKey string) (string, error) {
+// 	secretValue := &corev1.Secret{}
+// 	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secretValue); err != nil {
+// 		return "", err
+// 	}
+// 	return string(secretValue.Data[secretKey]), nil
+// }
 
 func conditionalEntry(key string, value interface{}) string {
 	switch v := value.(type) {

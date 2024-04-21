@@ -190,10 +190,10 @@ spec:
                     format: int32
                     type: integer
                   standaloneStopTimeout:
-                    description: 'Specifies the period for Standalone Mode to wait
-                      until it is gracefully shutdown. Default: 10s (10 seconds)'
-                    format: int32
-                    type: integer
+                    default: 10s
+                    description: Specifies the period for Standalone Mode to wait
+                      until it is gracefully shutdown.
+                    type: string
                 type: object
               image:
                 type: string
@@ -258,14 +258,6 @@ spec:
                         is PLSQL_GATEWAY_CONFIG, view is used to determine the user
                         to whom to proxy.
                       type: string
-                    SodaMaxLimit:
-                      default: 1000
-                      description: When using the SODA REST API, specifies the maximum
-                        number of documents that will be returned for a GET request
-                        on a collection URL, regardless of any limit specified in
-                        the URL. Must be a positive integer, or "unlimited" for no
-                        limit.
-                      type: string
                     apexSecurityAdministratorRoles:
                       description: Specifies the comma delimited list of additional
                         roles to assign authenticated APEX administrator type users.
@@ -274,7 +266,12 @@ spec:
                       description: Specifies a configuration setting to enable AutoUpgrade
                         REST API features.
                       type: boolean
-                    dbAdminAuthSecret:
+                    dbAdminUser:
+                      default: SYS AS SYSDBA
+                      description: Specifies the username for the database account
+                        that ORDS uses for administration operations in the database.
+                      type: string
+                    dbAdminUserSecret:
                       description: Specifies the Secret with the dbAdminUser (SYS
                         AS SYSDBA) and dbAdminPassword values for the database account
                         that ORDS uses for administration operations in the database.
@@ -284,28 +281,15 @@ spec:
                           type: string
                         secretName:
                           type: string
-                        usernameKey:
-                          default: username
-                          type: string
                       required:
                       - secretName
                       type: object
-                    dbAuthSecret:
-                      description: Specifies the Secret with the dbUser (ORDS_PUBLIC_USER)
-                        and dbPassword values for the connection.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                        usernameKey:
-                          default: username
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    dbCdbAdminAuthSecret:
+                    dbCdbAdminUser:
+                      default: SYS AS SYSDBA
+                      description: Specifies the username for the database account
+                        that ORDS uses for the Pluggable Database Lifecycle Management.
+                      type: string
+                    dbCdbAdminUserSecret:
                       description: Specifies the Secret with the dbCdbAdminUser (SYS
                         AS SYSDBA) and dbCdbAdminPassword values Specifies the username
                         for the database account that ORDS uses for the Pluggable
@@ -315,9 +299,6 @@ spec:
                           default: password
                           type: string
                         secretName:
-                          type: string
-                        usernameKey:
-                          default: username
                           type: string
                       required:
                       - secretName
@@ -339,6 +320,18 @@ spec:
                         including borrowed ones. Default: 5m'
                       format: int64
                       type: integer
+                    dbSecret:
+                      description: Specifies the Secret with the dbUsername and dbPassword
+                        values for the connection.
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     dbServiceNameSuffix:
                       description: Specifies that the pool points to a CDB, and that
                         the PDBs connected to that CDB should be made addressable
@@ -356,6 +349,11 @@ spec:
                       type: string
                     dbTnsDirectory:
                       description: The directory location of your tnsnames.ora file.
+                      type: string
+                    dbUsername:
+                      default: ORDS_PUBLIC_USER
+                      description: Specifies the name of the database user for the
+                        connection.
                       type: string
                     dbWalletZip:
                       description: Specifies the wallet archive (provided in BASE64
@@ -459,6 +457,11 @@ spec:
                         statements performed by Oracle Web Agent to be echoed to the
                         log.
                       type: boolean
+                    poolAutoRestart:
+                      default: false
+                      description: Specifies to automatically restart the pods when
+                        configuration changes are made
+                      type: boolean
                     poolName:
                       description: Specifies the Pool Name
                       type: string
@@ -544,14 +547,24 @@ spec:
                         javascript or plsql. / +kubebuilder:default:="plsql"'
                       type: string
                     sodaDefaultLimit:
-                      default: 100
+                      default: "100"
                       description: When using the SODA REST API, specifies the default
                         number of documents returned for a GET request on a collection
                         when a limit is not specified in the URL. Must be a positive
                         integer, or "unlimited" for no limit.
                       type: string
+                    sodaMaxLimit:
+                      default: "1000"
+                      description: When using the SODA REST API, specifies the maximum
+                        number of documents that will be returned for a GET request
+                        on a collection URL, regardless of any limit specified in
+                        the URL. Must be a positive integer, or "unlimited" for no
+                        limit.
+                      type: string
                   required:
-                  - dbAuthSecret
+                  - dbSecret
+                  - dbUsername
+                  - poolAutoRestart
                   - poolName
                   type: object
                 type: array

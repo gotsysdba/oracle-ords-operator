@@ -17,7 +17,13 @@ spec:
     standaloneHttpPort: 8082
   poolSettings:
     - poolName: Pool1
-      dbAuthSecret:
+      dbUsername: ORDS_PUBLIC_USER
+      dbSecret:
         secretName:  db-auth
-        usernameKey: username
         passwordKey: password
+    - poolName: Pool2
+      dbUsername: ORDS_PUBLIC_USER
+      dbSecret:
+        secretName:  db-auth
+        passwordKey: password
+      jdbcMaxLimit: 200

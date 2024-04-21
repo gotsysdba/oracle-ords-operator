@@ -137,8 +137,8 @@ type GlobalSettings struct {
 	StandaloneHttpsPort *int32 `json:"standaloneHttpsPort,omitempty"`
 
 	// Specifies the period for Standalone Mode to wait until it is gracefully shutdown.
-	// Default: 10s (10 seconds)
-	StandaloneStopTimeout *int32 `json:"standaloneStopTimeout,omitempty"`
+	// +kubebuilder:default="10s"
+	StandaloneStopTimeout string `json:"standaloneStopTimeout,omitempty"`
 
 	// Specifies the setting to determine for how long a metadata record remains in the cache.
 	// Longer duration means, it takes longer to view the applied changes.
@@ -217,11 +217,13 @@ type GlobalSettings struct {
 
 	// Specifies the SSL certificate path.
 	// If you are providing the SSL certificate, then you must specify the certificate location.
-	StandaloneHttpsCert string `json:"-"`
+	// Provided via ConfigMap
+	//StandaloneHttpsCert string `json:"-"`
 
 	// Specifies the SSL certificate key path.
 	// If you are providing the SSL certificate, you must specify the certificate key location.
-	StandaloneHttpsCertKey string `json:"-"`
+	// Provided via ConfigMap
+	//StandaloneHttpsCertKey string `json:"-"`
 
 	// Specifies the path to the folder to store HTTP request access logs.
 	// If not specified, then no access log is generated.
@@ -232,17 +234,45 @@ type PoolSettings struct {
 	// Specifies the Pool Name
 	PoolName string `json:"poolName"`
 
-	// Specifies the Secret with the dbUser (ORDS_PUBLIC_USER) and dbPassword values
+	// Specifies to automatically restart the pods when configuration changes are made
+	//+kubebuilder:default:=false
+	PoolAutoRestart bool `json:"poolAutoRestart"`
+
+	// Specifies the name of the database user for the connection.
+	//+kubebuilder:default:="ORDS_PUBLIC_USER"
+	DbUsername string `json:"dbUsername"`
+
+	// Specifies the password of the specified database user.
+	// Replaced by: DbSecret PasswordSecret `json:"dbSecret"`
+	// DbPassword struct{} `json:"dbPassword,omitempty"`
+
+	// Specifies the Secret with the dbUsername and dbPassword values
 	// for the connection.
-	DbAuthSecret UsernamePasswordSecret `json:"dbAuthSecret"`
+	DbSecret PasswordSecret `json:"dbSecret"`
+
+	// Specifies the username for the database account that ORDS uses for administration operations in the database.
+	//+kubebuilder:default:="SYS AS SYSDBA"
+	DbAdminUser string `json:"dbAdminUser,omitempty"`
+
+	// Specifies the password for the database account that ORDS uses for administration operations in the database.
+	// Replaced by: DbAdminUserSecret PasswordSecret `json:"dbAdminUserSecret,omitempty"`
+	// DbAdminUserPassword struct{} `json:"DbAdminUserPassword,omitempty"`
 
 	// Specifies the Secret with the dbAdminUser (SYS AS SYSDBA) and dbAdminPassword values
 	// for the database account that ORDS uses for administration operations in the database.
-	DbAdminAuthSecret UsernamePasswordSecret `json:"dbAdminAuthSecret,omitempty"`
+	DbAdminUserSecret PasswordSecret `json:"dbAdminUserSecret,omitempty"`
+
+	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
+	//+kubebuilder:default:="SYS AS SYSDBA"
+	DbCdbAdminUser string `json:"dbCdbAdminUser,omitempty"`
+
+	// Specifies the password for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
+	// Replaced by: DbCdbAdminUserSecret PasswordSecret `json:"dbCdbAdminUserSecret,omitempty"`
+	// DbCdbAdminUserPassword struct{} `json:"dbCdbAdminUserPassword,omitempty"`
 
 	// Specifies the Secret with the dbCdbAdminUser (SYS AS SYSDBA) and dbCdbAdminPassword values
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	DbCdbAdminAuthSecret UsernamePasswordSecret `json:"dbCdbAdminAuthSecret,omitempty"`
+	DbCdbAdminUserSecret PasswordSecret `json:"dbCdbAdminUserSecret,omitempty"`
 
 	// Specifies the comma delimited list of additional roles to assign authenticated APEX administrator type users.
 	ApexSecurityAdministratorRoles string `json:"apexSecurityAdministratorRoles,omitempty"`
@@ -261,22 +291,6 @@ type PoolSettings struct {
 
 	// Specifies a configuration setting for AutoUpgrade REST API log location.
 	AutoupgradeApiLoglocation string `json:"AutoupgradeApiLoglocation,omitempty"`
-
-	// Specifies the username for the database account that ORDS uses for administration operations in the database.
-	// Replaced by: DbAdminAuthSecret UsernamePasswordSecret
-	// DbAdminUser string `json:"DbAdminUser,omitempty"`
-
-	// Specifies the password for the database account that ORDS uses for administration operations in the database.
-	// Replaced by: DbAdminAuthSecret UsernamePasswordSecret
-	// DbAdminUserPassword struct{} `json:"DbAdminUserPassword,omitempty"`
-
-	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	// Replaced by: DbCdbAdminAuthSecret UsernamePasswordSecret
-	// DbCdbAdminUser string `json:"dbCdbAdminUser,omitempty"`
-
-	// Specifies the password for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	// Replaced by: DbCdbAdminAuthSecret UsernamePasswordSecret
-	// DbCdbAdminUserPassword struct{} `json:"dbCdbAdminUserPassword,omitempty"`
 
 	// Specifies the source for database credentials when creating a direct connection for running SQL statements.
 	// Value can be one of pool or request.
@@ -370,11 +384,6 @@ type PoolSettings struct {
 	// Specifies the host system for the Oracle database.
 	DbHostname string `json:"dbHostname,omitempty"`
 
-	// Specifies the password of the specified database user.
-	// Include an exclamation at the beginning of the password so that it can be stored encrypted.
-	// Replaced by: DbAuthSecret UsernamePasswordSecret `json:"dbAuthSecret"`
-	// DbPassword struct{} `json:"dbPassword,omitempty"`
-
 	// Specifies the database listener port.
 	DbPort *int32 `json:"DbPort,omitempty"`
 
@@ -393,10 +402,6 @@ type PoolSettings struct {
 
 	// The directory location of your tnsnames.ora file.
 	DbTnsDirectory string `json:"dbTnsDirectory,omitempty"`
-
-	// Specifies the name of the database user for the connection.
-	// Replaced by: DbAuthSecret UsernamePasswordSecret `json:"dbAuthSecret"`
-	// DbUsername string `json:"dbUsername,omitempty"`
 
 	// Specifies the JDBC driver type. Supported values: thin, oci8
 	/// +kubebuilder:default:="thin"
@@ -476,24 +481,22 @@ type PoolSettings struct {
 
 	// When using the SODA REST API, specifies the default number of documents returned for a GET request on a collection when a
 	// limit is not specified in the URL. Must be a positive integer, or "unlimited" for no limit.
-	// +kubebuilder:default:=100
+	// +kubebuilder:default:="100"
 	SodaDefaultLimit string `json:"sodaDefaultLimit,omitempty"`
 
 	// When using the SODA REST API, specifies the maximum number of documents that will be returned for a GET request on a collection URL,
 	// regardless of any limit specified in the URL. Must be a positive integer, or "unlimited" for no limit.
-	// +kubebuilder:default:=1000
-	SodaMaxLimit string `json:"SodaMaxLimit,omitempty"`
+	// +kubebuilder:default:="1000"
+	SodaMaxLimit string `json:"sodaMaxLimit,omitempty"`
 
 	// Specifies whether the REST-Enabled SQL service is active.
 	// +kubebuilder:default:=false
 	RestEnabledSqlActive *bool `json:"restEnabledSqlActive,omitempty"`
 }
 
-// Defines the secret containing Username/Password mapped to secretKey
-type UsernamePasswordSecret struct {
+// Defines the secret containing Password mapped to secretKey
+type PasswordSecret struct {
 	SecretName string `json:"secretName"`
-	// +kubebuilder:default:="username"
-	UsernameKey string `json:"usernameKey,omitempty"`
 	// +kubebuilder:default:="password"
 	PasswordKey string `json:"passwordKey,omitempty"`
 }
