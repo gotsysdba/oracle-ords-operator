@@ -272,7 +272,15 @@ func (r *RestDataServicesReconciler) DeploymentReconcile(ctx context.Context, re
 		if err := r.Update(ctx, deploymentType); err != nil {
 			return ctrl.Result{}, err
 		}
-		logr.Info("Scaled")
+		logr.Info("Scaled: " + ords.Name)
+	}
+	if restartPods {
+		logr.Info("Cycling: " + ords.Name)
+		deploymentType.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
+		if err := r.Update(ctx, deploymentType); err != nil {
+			return ctrl.Result{}, err
+		}
+		restartPods = false
 	}
 	return ctrl.Result{}, nil
 }
@@ -296,7 +304,15 @@ func (r *RestDataServicesReconciler) StatefulSetReconcile(ctx context.Context, r
 		if err := r.Update(ctx, statefulSetType); err != nil {
 			return ctrl.Result{}, err
 		}
-		logr.Info("Scaled")
+		logr.Info("Scaled: " + ords.Name)
+	}
+	if restartPods {
+		logr.Info("Cycling: " + ords.Name)
+		statefulSetType.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
+		if err := r.Update(ctx, statefulSetType); err != nil {
+			return ctrl.Result{}, err
+		}
+		restartPods = false
 	}
 	return ctrl.Result{}, nil
 }
@@ -311,6 +327,14 @@ func (r *RestDataServicesReconciler) DaemonSetReconcile(ctx context.Context, req
 			return ctrl.Result{}, err
 		}
 		logr.Info("Created: " + ords.Name)
+	}
+	if restartPods {
+		logr.Info("Cycling: " + ords.Name)
+		daemonSetType.Spec.Template.ObjectMeta.Labels["configMapChanged"] = time.Now().Format("20060102T150405Z")
+		if err := r.Update(ctx, daemonSetType); err != nil {
+			return ctrl.Result{}, err
+		}
+		restartPods = false
 	}
 	return ctrl.Result{}, nil
 }
@@ -340,7 +364,7 @@ func (r *RestDataServicesReconciler) DeleteDeployment(ctx context.Context, req c
 	logr := log.FromContext(ctx).WithName("DeleteDeployment")
 	deploymentList := &appsv1.DeploymentList{}
 	if err := r.List(ctx, deploymentList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+		client.MatchingLabels(map[string]string{"oracle.com/operator-filter": "oracle-ords-operator"}),
 	); err != nil {
 		return err
 	}
@@ -357,7 +381,7 @@ func (r *RestDataServicesReconciler) DeleteStatefulSet(ctx context.Context, req 
 	logr := log.FromContext(ctx).WithName("StatefulSet")
 	statefulSetList := &appsv1.StatefulSetList{}
 	if err := r.List(ctx, statefulSetList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+		client.MatchingLabels(map[string]string{"oracle.com/operator-filter": "oracle-ords-operator"}),
 	); err != nil {
 		return err
 	}
@@ -374,7 +398,7 @@ func (r *RestDataServicesReconciler) DeleteDaemonSet(ctx context.Context, req ct
 	logr := log.FromContext(ctx).WithName("DeleteDaemonSet")
 	daemonSetList := &appsv1.DaemonSetList{}
 	if err := r.List(ctx, daemonSetList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{"app.kubernetes.io/component": "workload"}),
+		client.MatchingLabels(map[string]string{"oracle.com/operator-filter": "oracle-ords-operator"}),
 	); err != nil {
 		return err
 	}

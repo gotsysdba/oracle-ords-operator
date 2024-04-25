@@ -9,8 +9,8 @@ metadata:
     app.kubernetes.io/created-by: oracle-ords-operator
   name: ords-sample-1
 spec:
-  replicas: 1
-  workloadType: DaemonSet
+  replicas: 3
+  workloadType: StatefulSet
   image: container-registry.oracle.com/database/ords:23.4.0
   autoRestart: true
   globalSettings:
