@@ -66,12 +66,7 @@ type RestDataServicesSpec struct {
 
 // RestDataServicesStatus defines the observed state of RestDataServices
 type RestDataServicesStatus struct {
-	Image    string `json:"image,omitempty"`
-	Replicas int32  `json:"replicas,omitempty"`
-
-	// Conditions store the status conditions of the ORDS instances
-	// +operator-sdk:csv:customresourcedefinitions:type=status
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+	Image string `json:"image,omitempty"`
 }
 
 type GlobalSettings struct {
@@ -197,7 +192,7 @@ type GlobalSettings struct {
 
 	// Specifies the context path where ords is located.
 	// +kubebuilder:default:="/ords"
-	StandaloneContextPath string `json:"-"`
+	StandaloneContextPath string `json:"standaloneContextPath,omitempty"`
 
 	// Points to the location where static resources to be served under the / root server path are located.
 	StandaloneDocRoot string `json:"-"`

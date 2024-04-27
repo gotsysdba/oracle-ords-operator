@@ -7,10 +7,10 @@ metadata:
     app.kubernetes.io/part-of: oracle-ords-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: oracle-ords-operator
-  name: ords-sample-1
+  name: ords-sample-2
 spec:
   replicas: 3
-  workloadType: StatefulSet
+  workloadType: Deployment
   image: container-registry.oracle.com/database/ords:23.4.0
   autoRestart: true
   globalSettings:
@@ -18,13 +18,13 @@ spec:
     standaloneHttpPort: 8082
   poolSettings:
     - poolName: Pool1
-      dbUsername: ORDS_PUBLIC_USER
+      dbUsername: ORDS_PUBLIC_USER2
       dbSecret:
         secretName:  db-auth
         passwordKey: password
-    - poolName: Pool2
-      dbUsername: ORDS_PUBLIC_USER
-      dbSecret:
-        secretName:  db-auth
-        passwordKey: password
-      jdbcMaxLimit: 200
+    # - poolName: Pool2
+    #   dbUsername: ORDS_PUBLIC_USER
+    #   dbSecret:
+    #     secretName:  db-auth
+    #     passwordKey: password
+    #   jdbcMaxLimit: 201
