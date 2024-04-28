@@ -55,6 +55,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,7 +71,8 @@ const (
 	targetPortName      = "sa-pod-port"
 	globalConfigMapName = "sa-settings-global"
 	poolConfigPreName   = "sa-settings-" // Append PoolName
-	controllerLabel     = "oracle.com/ords-operator-filter"
+	controllerLabelKey  = "oracle.com/ords-operator-filter"
+	controllerLabelVal  = "oracle-ords-operator"
 	specHashLabel       = "oracle.com/ords-operator-spec-hash"
 )
 
@@ -159,11 +161,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// // Service
-	// result, err = r.ServiceReconcile(ctx, req, ords)
-	// if result.Requeue || err != nil {
-	// 	return result, err
-	// }
+	// Service
+	if err := r.ServiceReconcile(ctx, ords); err != nil {
+		logr.Error(err, "Error in WorkloadReconcile")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -184,7 +186,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 			}
 			logr.Info("Created: " + configMapName)
 			restartPods = ords.Spec.AutoRestart
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Creation", "ConfigMap "+configMapName+" Created")
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "ConfigMap %s Created", configMapName)
 			// Requery for comparison
 			r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: ords.Namespace}, definedConfigMap)
 		} else {
@@ -197,7 +199,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 		}
 		logr.Info("Updated: " + configMapName)
 		restartPods = ords.Spec.AutoRestart
-		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Reconciled", "ConfigMap "+configMapName+" Reconciled")
+		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "ConfigMap %s Updated", configMapName)
 	}
 
 	return nil
@@ -217,17 +219,6 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 	var definedSpecHash string
 
 	switch kind {
-	case "Deployment":
-		desiredWorkload = &appsv1.Deployment{
-			ObjectMeta: objectMeta,
-			Spec: appsv1.DeploymentSpec{
-				Replicas: &ords.Spec.Replicas,
-				Selector: &selector,
-				Template: template,
-			},
-		}
-		desiredSpecHash = generateSpecHash(desiredWorkload.(*appsv1.Deployment).Spec)
-		desiredWorkload.(*appsv1.Deployment).ObjectMeta.Labels[specHashLabel] = desiredSpecHash
 	case "StatefulSet":
 		desiredWorkload = &appsv1.StatefulSet{
 			ObjectMeta: objectMeta,
@@ -250,7 +241,16 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 		desiredSpecHash = generateSpecHash(desiredWorkload.(*appsv1.DaemonSet).Spec)
 		desiredWorkload.(*appsv1.DaemonSet).ObjectMeta.Labels[specHashLabel] = desiredSpecHash
 	default:
-		return fmt.Errorf("unsupported kind: %s", kind)
+		desiredWorkload = &appsv1.Deployment{
+			ObjectMeta: objectMeta,
+			Spec: appsv1.DeploymentSpec{
+				Replicas: &ords.Spec.Replicas,
+				Selector: &selector,
+				Template: template,
+			},
+		}
+		desiredSpecHash = generateSpecHash(desiredWorkload.(*appsv1.Deployment).Spec)
+		desiredWorkload.(*appsv1.Deployment).ObjectMeta.Labels[specHashLabel] = desiredSpecHash
 	}
 
 	if err := ctrl.SetControllerReference(ords, desiredWorkload, r.Scheme); err != nil {
@@ -265,7 +265,7 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 			}
 			logr.Info(fmt.Sprintf("Created: %s", kind))
 			restartPods = false
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Creation", fmt.Sprintf("%s Created", kind))
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "Created %s", kind)
 			// Requery for comparison
 			r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedWorkload)
 		} else {
@@ -287,7 +287,7 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 		if err := r.Client.Update(ctx, desiredWorkload); err != nil {
 			return err
 		}
-		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Reconciled", fmt.Sprintf("%s Reconciled", kind))
+		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Updated %s", kind)
 	}
 	if restartPods {
 		logr.Info(fmt.Sprintf("Cycling: %s", kind))
@@ -299,95 +299,55 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 			if err := r.Update(ctx, desiredWorkload); err != nil {
 				return err
 			}
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Recycled", fmt.Sprintf("%s Recycled", kind))
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Restart", "Restarted %s", kind)
 			restartPods = false
 		}
 	}
 	return nil
 }
 
-func (r *RestDataServicesReconciler) WorkloadDelete(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, kind string) (err error) {
-	logr := log.FromContext(ctx).WithName("WorkloadDelete")
+// Service
+func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords *databasev1.RestDataServices) (err error) {
+	logr := log.FromContext(ctx).WithName("ServiceReconcile")
 
-	deploymentList := &appsv1.DeploymentList{}
-	statefulSetList := &appsv1.StatefulSetList{}
-	daemonSetList := &appsv1.DaemonSetList{}
+	port := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+	desiredService := r.ServiceDefine(ctx, ords, port)
 
-	// Get Workloads
-	r.List(ctx, deploymentList, client.InNamespace(req.Namespace), client.MatchingLabels(map[string]string{controllerLabel: "oracle-ords-operator"}))
-	r.List(ctx, statefulSetList, client.InNamespace(req.Namespace), client.MatchingLabels(map[string]string{controllerLabel: "oracle-ords-operator"}))
-	r.List(ctx, daemonSetList, client.InNamespace(req.Namespace), client.MatchingLabels(map[string]string{controllerLabel: "oracle-ords-operator"}))
+	definedService := &corev1.Service{}
+	if err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService); err != nil {
+		if apierrors.IsNotFound(err) {
+			if err := r.Create(ctx, desiredService); err != nil {
+				return err
+			}
+			logr.Info("Created: Service")
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "Service %s Created", ords.Name)
+			// Requery for comparison
+			r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService)
+		} else {
+			return err
+		}
+	}
 
-	switch kind {
-	case "Deployment":
-		for _, deleteStatefulSet := range statefulSetList.Items {
-			r.Delete(ctx, &deleteStatefulSet)
-			logr.Info("Deleted StatefulSet: " + deleteStatefulSet.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted StatefulSet")
-		}
-		for _, deleteDaemonSet := range daemonSetList.Items {
-			r.Delete(ctx, &deleteDaemonSet)
-			logr.Info("Deleted DaemonSet: " + deleteDaemonSet.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted DaemonSet")
-		}
-	case "StatefulSet":
-		for _, deleteDeployment := range deploymentList.Items {
-			r.Delete(ctx, &deleteDeployment)
-			logr.Info("Deleted Deployment: " + deleteDeployment.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted Deployment")
-		}
-		for _, deleteDaemonSet := range daemonSetList.Items {
-			r.Delete(ctx, &deleteDaemonSet)
-			logr.Info("Deleted DaemonSet: " + deleteDaemonSet.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted DaemonSet")
-		}
-	case "DaemonSet":
-		for _, deleteDeployment := range deploymentList.Items {
-			r.Delete(ctx, &deleteDeployment)
-			logr.Info("Deleted Deployment: " + deleteDeployment.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted Deployment")
-		}
-		for _, deleteStatefulSet := range statefulSetList.Items {
-			r.Delete(ctx, &deleteStatefulSet)
-			logr.Info("Deleted StatefulSet: " + deleteStatefulSet.Name)
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deleted", "Deleted StatefulSet")
+	desiredServicePort := int32(80)
+	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
+		desiredServicePort = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	}
+	for _, existingPort := range definedService.Spec.Ports {
+		if existingPort.Name == servicePortName {
+			if existingPort.Port != desiredServicePort {
+				if err := r.Update(ctx, desiredService); err != nil {
+					return err
+				}
+				logr.Info("Updated Service Port: " + existingPort.Name)
+				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service Port %s Updated", existingPort.Name)
+			}
 		}
 	}
 	return nil
 }
-
-// // Service
-// func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices) (ctrl.Result, error) {
-// 	logr := log.FromContext(ctx).WithName("ServiceReconcile")
-
-// 	serviceType := &corev1.Service{}
-// 	err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, serviceType)
-// 	if err != nil && apierrors.IsNotFound(err) {
-// 		def, err := r.defService(ctx, ords)
-// 		if err = r.Create(ctx, def); err != nil {
-// 			return ctrl.Result{}, err
-// 		}
-// 		logr.Info("Created: " + ords.Name)
-// 		return ctrl.Result{}, nil
-// 	}
-
-// 	definedServicePort := int32(80)
-// 	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-// 		definedServicePort = *ords.Spec.GlobalSettings.StandaloneHttpPort
-// 	}
-// 	for _, existingPort := range serviceType.Spec.Ports {
-// 		if existingPort.Name == servicePortName {
-// 			if existingPort.Port != definedServicePort {
-// 				if err := r.Update(ctx, serviceType); err != nil {
-// 					return ctrl.Result{}, err
-// 				}
-// 				logr.Info("Reconciled: " + existingPort.Name)
-// 			}
-// 			return ctrl.Result{}, nil
-// 		}
-// 	}
-// 	return ctrl.Result{}, nil
-// }
 
 /*************************************************
  * Definers
@@ -675,35 +635,32 @@ func volumeBuild(name string, source string) corev1.Volume {
 	}
 }
 
-// // Service
-// func (r *RestDataServicesReconciler) defService(ctx context.Context, ords *databasev1.RestDataServices) (*corev1.Service, error) {
-// 	port := int32(80)
-// 	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-// 		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
-// 	}
-// 	labels := getLabels(ords.Name)
-// 	def := &corev1.Service{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      ords.Name,
-// 			Namespace: ords.Namespace,
-// 		},
-// 		Spec: corev1.ServiceSpec{
-// 			Selector: labels,
-// 			Ports: []corev1.ServicePort{
-// 				{
-// 					Name:       servicePortName,
-// 					Protocol:   corev1.ProtocolTCP,
-// 					Port:       port,
-// 					TargetPort: intstr.FromString(targetPortName),
-// 				},
-// 			},
-// 		},
-// 	}
-// 	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
-// 		return nil, err
-// 	}
-// 	return def, nil
-// }
+// Service
+func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *databasev1.RestDataServices, port int32) *corev1.Service {
+	labels := getLabels(ords.Name)
+
+	objectMeta := objectMetaDefine(ords, ords.Name)
+	def := &corev1.Service{
+		ObjectMeta: objectMeta,
+		Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       servicePortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       port,
+					TargetPort: intstr.FromString(targetPortName),
+				},
+			},
+		},
+	}
+
+	// Set the ownerRef
+	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
+		return nil
+	}
+	return def
+}
 
 /*************************************************
  * Deletions
@@ -712,7 +669,7 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
 	// Delete Undefined Pool ConfigMaps
 	configMapList := &corev1.ConfigMapList{}
 	if err := r.List(ctx, configMapList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{"oracle.com/operator-filter": "oracle-ords-operator"}),
+		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
 	); err != nil {
 		return err
 	}
@@ -722,12 +679,86 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
 			continue
 		}
 		if _, exists := definedPools[configMap.Name]; !exists {
-			// Delete the ConfigMap
 			if err := r.Delete(ctx, &configMap); err != nil {
 				return err
 			}
 			restartPods = ords.Spec.AutoRestart
-			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Deletion", "ConfigMap %s Deleted", configMap.Name)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "ConfigMap %s Deleted", configMap.Name)
+		}
+	}
+	return nil
+}
+
+func (r *RestDataServicesReconciler) WorkloadDelete(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, kind string) (err error) {
+	logr := log.FromContext(ctx).WithName("WorkloadDelete")
+
+	// Get Workloads
+	deploymentList := &appsv1.DeploymentList{}
+	if err := r.List(ctx, deploymentList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+	); err != nil {
+		return err
+	}
+
+	statefulSetList := &appsv1.StatefulSetList{}
+	if err := r.List(ctx, statefulSetList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+	); err != nil {
+		return err
+	}
+
+	daemonSetList := &appsv1.DaemonSetList{}
+	if err := r.List(ctx, daemonSetList, client.InNamespace(req.Namespace),
+		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+	); err != nil {
+		return err
+	}
+
+	switch kind {
+	case "StatefulSet":
+		for _, deleteDaemonSet := range daemonSetList.Items {
+			if err := r.Delete(ctx, &deleteDaemonSet); err != nil {
+				return err
+			}
+			logr.Info("Deleted: " + kind)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
+		}
+		for _, deleteDeployment := range deploymentList.Items {
+			if err := r.Delete(ctx, &deleteDeployment); err != nil {
+				return err
+			}
+			logr.Info("Deleted: " + kind)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
+		}
+	case "DaemonSet":
+		for _, deleteDeployment := range deploymentList.Items {
+			if err := r.Delete(ctx, &deleteDeployment); err != nil {
+				return err
+			}
+			logr.Info("Deleted: " + kind)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
+		}
+		for _, deleteStatefulSet := range statefulSetList.Items {
+			if err := r.Delete(ctx, &deleteStatefulSet); err != nil {
+				return err
+			}
+			logr.Info("Deleted StatefulSet: " + deleteStatefulSet.Name)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
+		}
+	default:
+		for _, deleteStatefulSet := range statefulSetList.Items {
+			if err := r.Delete(ctx, &deleteStatefulSet); err != nil {
+				return err
+			}
+			logr.Info("Deleted: " + kind)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
+		}
+		for _, deleteDaemonSet := range daemonSetList.Items {
+			if err := r.Delete(ctx, &deleteDaemonSet); err != nil {
+				return err
+			}
+			logr.Info("Deleted: " + kind)
+			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "Workload %s Deleted", kind)
 		}
 	}
 	return nil
@@ -738,19 +769,10 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
  **************************************************/
 func getLabels(name string) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/name":     "ORDS",
 		"app.kubernetes.io/instance": name,
-		controllerLabel:              "oracle-ords-operator",
+		controllerLabelKey:           controllerLabelVal,
 	}
 }
-
-// // func (r *RestDataServicesReconciler) getSecretValues(ctx context.Context, namespace string, secretName string, secretKey string) (string, error) {
-// // 	secretValue := &corev1.Secret{}
-// // 	if err := r.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secretValue); err != nil {
-// // 		return "", err
-// // 	}
-// // 	return string(secretValue.Data[secretKey]), nil
-// // }
 
 func conditionalEntry(key string, value interface{}) string {
 	switch v := value.(type) {
