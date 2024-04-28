@@ -66,7 +66,7 @@ import (
 
 // Definitions of Standards
 const (
-	ordsConfigBase      = "/opt/oracle/sa/config"
+	ordsSABase          = "/opt/oracle/sa"
 	servicePortName     = "sa-svc-port"
 	targetPortName      = "sa-pod-port"
 	globalConfigMapName = "sa-settings-global"
@@ -311,8 +311,8 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 	logr := log.FromContext(ctx).WithName("ServiceReconcile")
 
 	port := int32(80)
-	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	if ords.Spec.GlobalSettings.StandaloneHTTPPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHTTPPort
 	}
 	desiredService := r.ServiceDefine(ctx, ords, port)
 
@@ -331,13 +331,9 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 		}
 	}
 
-	desiredServicePort := int32(80)
-	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-		desiredServicePort = *ords.Spec.GlobalSettings.StandaloneHttpPort
-	}
 	for _, existingPort := range definedService.Spec.Ports {
 		if existingPort.Name == servicePortName {
-			if existingPort.Port != desiredServicePort {
+			if existingPort.Port != port {
 				if err := r.Update(ctx, desiredService); err != nil {
 					return err
 				}
@@ -357,106 +353,113 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 	defData := make(map[string]string)
 	if configMapName == globalConfigMapName {
 		// GlobalConfigMap
+		var defAccessLog string
+		if ords.Spec.GlobalSettings.EnableStandaloneAccessLog {
+			defAccessLog = `  <entry key="standalone.access.log">` + ordsSABase + `/log/global</entry>` + "\n"
+		}
+		var defCert string
+		if ords.Spec.GlobalSettings.CertSecret != nil {
+			defCert = `  <entry key="standalone.https.cert">` + ordsSABase + `/config/certficate/` + ords.Spec.GlobalSettings.CertSecret.Certificate + `</entry>` + "\n" +
+				`  <entry key="standalone.https.cert.key">` + ordsSABase + `/config/certficate/` + ords.Spec.GlobalSettings.CertSecret.CertificateKey + `</entry>` + "\n"
+		}
 		defData = map[string]string{
 			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
-				// `  <entry key="standalone.https.cert">/opt/oracle/sa/config/certficate</entry>` + "\n" +
-				// `  <entry key="standalone.https.cert.key">/opt/oracle/sa/config/certficate</entry>` + "\n" +
-				conditionalEntry("cache.metadata.graphql.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataGraphqlExpireAfterAccess) +
-				conditionalEntry("cache.metadata.jwks.enabled", ords.Spec.GlobalSettings.CacheMetadataJwksEnabled) +
-				conditionalEntry("cache.metadata.jwks.initialCapacity", ords.Spec.GlobalSettings.CacheMetadataJwksInitialCapacity) +
-				conditionalEntry("cache.metadata.jwks.maximumSize", ords.Spec.GlobalSettings.CacheMetadataJwksMaximumSize) +
-				conditionalEntry("cache.metadata.jwks.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataJwksExpireAfterAccess) +
-				conditionalEntry("cache.metadata.jwks.expireAfterWrite", ords.Spec.GlobalSettings.CacheMetadataJwksExpireAfterWrite) +
-				conditionalEntry("database.api.management.services.disabled", ords.Spec.GlobalSettings.DatabaseApiManagementServicesDisabled) +
-				conditionalEntry("db.invalidPoolTimeout", ords.Spec.GlobalSettings.DbInvalidPoolTimeout) +
-				conditionalEntry("feature.grahpql.max.nesting.depth", ords.Spec.GlobalSettings.FeatureGrahpqlMaxNestingDepth) +
+				conditionalEntry("cache.metadata.graphql.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataGraphQLExpireAfterAccess) +
+				conditionalEntry("cache.metadata.jwks.enabled", ords.Spec.GlobalSettings.CacheMetadataJWKSEnabled) +
+				conditionalEntry("cache.metadata.jwks.initialCapacity", ords.Spec.GlobalSettings.CacheMetadataJWKSInitialCapacity) +
+				conditionalEntry("cache.metadata.jwks.maximumSize", ords.Spec.GlobalSettings.CacheMetadataJWKSMaximumSize) +
+				conditionalEntry("cache.metadata.jwks.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataJWKSExpireAfterAccess) +
+				conditionalEntry("cache.metadata.jwks.expireAfterWrite", ords.Spec.GlobalSettings.CacheMetadataJWKSExpireAfterWrite) +
+				conditionalEntry("database.api.management.services.disabled", ords.Spec.GlobalSettings.DatabaseAPIManagementServicesDisabled) +
+				conditionalEntry("db.invalidPoolTimeout", ords.Spec.GlobalSettings.DBInvalidPoolTimeout) +
+				conditionalEntry("feature.graphql.max.nesting.depth", ords.Spec.GlobalSettings.FeatureGraphQLMaxNestingDepth) +
 				conditionalEntry("request.traceHeaderName", ords.Spec.GlobalSettings.RequestTraceHeaderName) +
 				conditionalEntry("security.credentials.attempts ", ords.Spec.GlobalSettings.SecurityCredentialsAttempts) +
-				conditionalEntry("security.credentials.file ", ords.Spec.GlobalSettings.SecurityCredentialsFile) +
 				conditionalEntry("security.credentials.lock.time ", ords.Spec.GlobalSettings.SecurityCredentialsLockTime) +
-				conditionalEntry("standalone.access.log", ords.Spec.GlobalSettings.StandaloneAccessLog) +
 				conditionalEntry("standalone.binds", ords.Spec.GlobalSettings.StandaloneBinds) +
 				conditionalEntry("standalone.context.path ", ords.Spec.GlobalSettings.StandaloneContextPath) +
-				conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
-				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHttpPort) +
+				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHTTPPort) +
 				conditionalEntry("standalone.https.host", ords.Spec.GlobalSettings.StandaloneHttpsHost) +
 				conditionalEntry("standalone.https.port", ords.Spec.GlobalSettings.StandaloneHttpsPort) +
 				conditionalEntry("standalone.static.context.path ", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
-				conditionalEntry("standalone.static.path", ords.Spec.GlobalSettings.StandaloneStaticPath) +
 				conditionalEntry("standalone.stop.timeout ", ords.Spec.GlobalSettings.StandaloneStopTimeout) +
 				conditionalEntry("cache.metadata.timeout", ords.Spec.GlobalSettings.CacheMetadataTimeout) +
 				conditionalEntry("cache.metadata.enabled", ords.Spec.GlobalSettings.CacheMetadataEnabled) +
-				conditionalEntry("database.api.enabled", ords.Spec.GlobalSettings.DatabaseApiEnabled) +
+				conditionalEntry("database.api.enabled", ords.Spec.GlobalSettings.DatabaseAPIEnabled) +
 				conditionalEntry("debug.printDebugToScreen", ords.Spec.GlobalSettings.DebugPrintDebugToScreen) +
 				conditionalEntry("error.responseFormat", ords.Spec.GlobalSettings.ErrorResponseFormat) +
-				conditionalEntry("error.externalPath", ords.Spec.GlobalSettings.ErrorExternalPath) +
-				conditionalEntry("icap.port", ords.Spec.GlobalSettings.IcapPort) +
-				conditionalEntry("icap.secure.port", ords.Spec.GlobalSettings.IcapSecurePort) +
-				conditionalEntry("icap.server", ords.Spec.GlobalSettings.IcapServer) +
+				conditionalEntry("icap.port", ords.Spec.GlobalSettings.ICAPPort) +
+				conditionalEntry("icap.secure.port", ords.Spec.GlobalSettings.ICAPSecurePort) +
+				conditionalEntry("icap.server", ords.Spec.GlobalSettings.ICAPServer) +
 				conditionalEntry("log.procedure", ords.Spec.GlobalSettings.LogProcedure) +
 				conditionalEntry("security.disableDefaultExclusionList", ords.Spec.GlobalSettings.SecurityDisableDefaultExclusionList) +
 				conditionalEntry("security.exclusionList", ords.Spec.GlobalSettings.SecurityExclusionList) +
 				conditionalEntry("security.inclusionList", ords.Spec.GlobalSettings.SecurityInclusionList) +
 				conditionalEntry("security.maxEntries", ords.Spec.GlobalSettings.SecurityMaxEntries) +
 				conditionalEntry("security.verifySSL", ords.Spec.GlobalSettings.SecurityVerifySSL) +
+				defAccessLog +
+				defCert +
+				// Disabled (but not forgotten)
+				// conditionalEntry("error.externalPath", ords.Spec.GlobalSettings.ErrorExternalPath) +
+				// conditionalEntry("security.credentials.file ", ords.Spec.GlobalSettings.SecurityCredentialsFile) +
+				// conditionalEntry("standalone.static.path", ords.Spec.GlobalSettings.StandaloneStaticPath) +
+				// conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
 				`</properties>`),
 		}
 	} else {
 		// PoolConfigMap
+		poolName := strings.ToLower(ords.Spec.PoolSettings[poolIndex].PoolName)
+		var defDBWalletZip string
+		if ords.Spec.PoolSettings[poolIndex].DBWalletSecret != nil {
+			defDBWalletZip = `  <entry key="db.wallet.zip">` + ords.Spec.PoolSettings[poolIndex].DBWalletSecret.WalletName + `/log/global</entry>` + "\n"
+		}
 		defData = map[string]string{
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
 				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
 				`<properties>` + "\n" +
-				`  <entry key="db.username">` + ords.Spec.PoolSettings[poolIndex].DbUsername + `</entry>` + "\n" +
-				conditionalEntry("db.adminUser", ords.Spec.PoolSettings[poolIndex].DbAdminUser) +
-				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings[poolIndex].DbCdbAdminUser) +
+				`  <entry key="db.username">` + ords.Spec.PoolSettings[poolIndex].DBUsername + `</entry>` + "\n" +
+				conditionalEntry("db.adminUser", ords.Spec.PoolSettings[poolIndex].DBAdminUser) +
+				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings[poolIndex].DBCDBAdminUser) +
 				conditionalEntry("apex.security.administrator.roles", ords.Spec.PoolSettings[poolIndex].ApexSecurityAdministratorRoles) +
 				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings[poolIndex].ApexSecurityUserRoles) +
-				conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeApiAulocation) +
-				conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings[poolIndex].AutoupgradeApiEnabled) +
-				conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeApiJvmlocation) +
-				conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeApiLoglocation) +
-				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings[poolIndex].DbCredentialsSource) +
-				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings[poolIndex].DbPoolDestroyTimeout) +
-				conditionalEntry("db.wallet.zip", ords.Spec.PoolSettings[poolIndex].DbWalletZip) +
-				conditionalEntry("db.wallet.zip.path", ords.Spec.PoolSettings[poolIndex].DbWalletZipPath) +
-				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings[poolIndex].DbWalletZipService) +
+				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings[poolIndex].DBCredentialsSource) +
+				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings[poolIndex].DBPoolDestroyTimeout) +
+				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings[poolIndex].DBWalletZipService) +
 				conditionalEntry("debug.trackResources", ords.Spec.PoolSettings[poolIndex].DebugTrackResources) +
 				conditionalEntry("feature.openservicebroker.exclude", ords.Spec.PoolSettings[poolIndex].FeatureOpenservicebrokerExclude) +
-				conditionalEntry("feature.sdw", ords.Spec.PoolSettings[poolIndex].FeatureSdw) +
+				conditionalEntry("feature.sdw", ords.Spec.PoolSettings[poolIndex].FeatureSDW) +
 				conditionalEntry("http.cookie.filter", ords.Spec.PoolSettings[poolIndex].HttpCookieFilter) +
-				conditionalEntry("jdbc.auth.admin.role", ords.Spec.PoolSettings[poolIndex].JdbcAuthAdminRole) +
-				conditionalEntry("jdbc.cleanup.mode", ords.Spec.PoolSettings[poolIndex].JdbCleanupMode) +
+				conditionalEntry("jdbc.auth.admin.role", ords.Spec.PoolSettings[poolIndex].JDBCAuthAdminRole) +
+				conditionalEntry("jdbc.cleanup.mode", ords.Spec.PoolSettings[poolIndex].JDBCCleanupMode) +
 				conditionalEntry("owa.trace.sql", ords.Spec.PoolSettings[poolIndex].OwaTraceSql) +
 				conditionalEntry("plsql.gateway.mode", ords.Spec.PoolSettings[poolIndex].PlsqlGatewayMode) +
-				conditionalEntry("security.jwt.profile.enabled", ords.Spec.PoolSettings[poolIndex].SecurityJwtProfileEnabled) +
-				conditionalEntry("security.jwks.size", ords.Spec.PoolSettings[poolIndex].SecurityJwksSize) +
-				conditionalEntry("security.jwks.connection.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJwksConnectionTimeout) +
-				conditionalEntry("security.jwks.read.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJwksReadTimeout) +
-				conditionalEntry("security.jwks.refresh.interval", ords.Spec.PoolSettings[poolIndex].SecurityJwksRefreshInterval) +
-				conditionalEntry("security.jwt.allowed.skew", ords.Spec.PoolSettings[poolIndex].SecurityJwtAllowedSkew) +
-				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings[poolIndex].SecurityJwtAllowedAge) +
+				conditionalEntry("security.jwt.profile.enabled", ords.Spec.PoolSettings[poolIndex].SecurityJWTProfileEnabled) +
+				conditionalEntry("security.jwks.size", ords.Spec.PoolSettings[poolIndex].SecurityJWKSSize) +
+				conditionalEntry("security.jwks.connection.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJWKSConnectionTimeout) +
+				conditionalEntry("security.jwks.read.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJWKSReadTimeout) +
+				conditionalEntry("security.jwks.refresh.interval", ords.Spec.PoolSettings[poolIndex].SecurityJWKSRefreshInterval) +
+				conditionalEntry("security.jwt.allowed.skew", ords.Spec.PoolSettings[poolIndex].SecurityJWTAllowedSkew) +
+				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings[poolIndex].SecurityJWTAllowedAge) +
 				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings[poolIndex].SecurityValidationFunctionType) +
-				conditionalEntry("db.connectionType", ords.Spec.PoolSettings[poolIndex].DbConnectionType) +
-				conditionalEntry("db.customURL", ords.Spec.PoolSettings[poolIndex].DbCustomURL) +
-				conditionalEntry("db.hostname", ords.Spec.PoolSettings[poolIndex].DbHostname) +
-				conditionalEntry("db.port", ords.Spec.PoolSettings[poolIndex].DbPort) +
-				conditionalEntry("db.servicename", ords.Spec.PoolSettings[poolIndex].DbServicename) +
-				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings[poolIndex].DbServiceNameSuffix) +
-				conditionalEntry("db.sid", ords.Spec.PoolSettings[poolIndex].DbSid) +
-				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings[poolIndex].DbTnsAliasName) +
-				conditionalEntry("db.tnsDirectory", ords.Spec.PoolSettings[poolIndex].DbTnsDirectory) +
-				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings[poolIndex].JdbcDriverType) +
-				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings[poolIndex].JdbcInactivityTimeout) +
-				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings[poolIndex].JdbcInitialLimit) +
-				conditionalEntry("jdbc.MaxConnectionReuseCount", ords.Spec.PoolSettings[poolIndex].JdbcMaxConnectionReuseCount) +
-				conditionalEntry("jdbc.MaxLimit", ords.Spec.PoolSettings[poolIndex].JdbcMaxLimit) +
-				conditionalEntry("jdbc.auth.enabled", ords.Spec.PoolSettings[poolIndex].JdbcAuthEnabled) +
-				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings[poolIndex].JdbcMaxStatementsLimit) +
-				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings[poolIndex].JdbcMinLimit) +
-				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings[poolIndex].JdbcStatementTimeout) +
+				conditionalEntry("db.connectionType", ords.Spec.PoolSettings[poolIndex].DBConnectionType) +
+				conditionalEntry("db.customURL", ords.Spec.PoolSettings[poolIndex].DBCustomURL) +
+				conditionalEntry("db.hostname", ords.Spec.PoolSettings[poolIndex].DBHostname) +
+				conditionalEntry("db.port", ords.Spec.PoolSettings[poolIndex].DBPort) +
+				conditionalEntry("db.servicename", ords.Spec.PoolSettings[poolIndex].DBServicename) +
+				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings[poolIndex].DBServiceNameSuffix) +
+				conditionalEntry("db.sid", ords.Spec.PoolSettings[poolIndex].DBSid) +
+				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings[poolIndex].DBTnsAliasName) +
+				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings[poolIndex].JDBCDriverType) +
+				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings[poolIndex].JDBCInactivityTimeout) +
+				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings[poolIndex].JDBCInitialLimit) +
+				conditionalEntry("jdbc.MaxConnectionReuseCount", ords.Spec.PoolSettings[poolIndex].JDBCMaxConnectionReuseCount) +
+				conditionalEntry("jdbc.MaxLimit", ords.Spec.PoolSettings[poolIndex].JDBCMaxLimit) +
+				conditionalEntry("jdbc.auth.enabled", ords.Spec.PoolSettings[poolIndex].JDBCAuthEnabled) +
+				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings[poolIndex].JDBCMaxStatementsLimit) +
+				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings[poolIndex].JDBCMinLimit) +
+				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings[poolIndex].JDBCStatementTimeout) +
 				conditionalEntry("misc.defaultPage", ords.Spec.PoolSettings[poolIndex].MiscDefaultPage) +
 				conditionalEntry("misc.pagination.maxRows", ords.Spec.PoolSettings[poolIndex].MiscPaginationMaxRows) +
 				conditionalEntry("procedure.postProcess", ords.Spec.PoolSettings[poolIndex].ProcedurePostProcess) +
@@ -464,9 +467,17 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("procedure.rest.preHook", ords.Spec.PoolSettings[poolIndex].ProcedureRestPreHook) +
 				conditionalEntry("security.requestAuthenticationFunction", ords.Spec.PoolSettings[poolIndex].SecurityRequestAuthenticationFunction) +
 				conditionalEntry("security.requestValidationFunction", ords.Spec.PoolSettings[poolIndex].SecurityRequestValidationFunction) +
-				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings[poolIndex].SodaDefaultLimit) +
-				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings[poolIndex].SodaMaxLimit) +
+				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings[poolIndex].SODADefaultLimit) +
+				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings[poolIndex].SODAMaxLimit) +
 				conditionalEntry("restEnabledSql.active", ords.Spec.PoolSettings[poolIndex].RestEnabledSqlActive) +
+				`  <entry key="db.wallet.zip.path">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n" +
+				`  <entry key="db.tnsDirectory">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n" +
+				defDBWalletZip +
+				// Disabled (but not forgotten)
+				// conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIAulocation) +
+				// conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIEnabled) +
+				// conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIJvmlocation) +
+				// conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPILoglocation) +
 				`</properties>`),
 		}
 	}
@@ -508,8 +519,8 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 	labels := getLabels(ords.Name)
 	specVolumes, specVolumeMounts := VolumesDefine(ords)
 	port := int32(8080)
-	if ords.Spec.GlobalSettings.StandaloneHttpPort != nil {
-		port = *ords.Spec.GlobalSettings.StandaloneHttpPort
+	if ords.Spec.GlobalSettings.StandaloneHTTPPort != nil {
+		port = *ords.Spec.GlobalSettings.StandaloneHTTPPort
 	}
 
 	podSpecTemplate :=
@@ -549,7 +560,7 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 					Env: []corev1.EnvVar{
 						{
 							Name:  "ORDS_CONFIG",
-							Value: ordsConfigBase,
+							Value: ordsSABase + "/config",
 						},
 					},
 					VolumeMounts: specVolumeMounts,
@@ -567,13 +578,23 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	// Build volume specifications for globalSettings
 	standaloneVolume := volumeBuild("standalone", "EmptyDir")
 	globalWalletVolume := volumeBuild("sa-wallet-global", "EmptyDir")
+	globalLogVolume := volumeBuild("sa-log-global", "EmptyDir")
 	globalConfigVolume := volumeBuild(globalConfigMapName, "ConfigMap")
-	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalConfigVolume)
+	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume)
+	if ords.Spec.GlobalSettings.CertSecret != nil {
+		globalCertVolume := volumeBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, "Secret")
+		volumes = append(volumes, globalCertVolume)
+	}
 
-	standaloneVolumeMount := volumeMountBuild("standalone", ordsConfigBase+"/global/standalone/", false)
-	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsConfigBase+"/global/wallet/", false)
-	globalConfigVolumeMount := volumeMountBuild(globalConfigMapName, ordsConfigBase+"/global/", false)
-	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalConfigVolumeMount)
+	standaloneVolumeMount := volumeMountBuild("standalone", ordsSABase+"/config/global/standalone/", false)
+	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsSABase+"/config/global/wallet/", false)
+	globalLogVolumeMount := volumeMountBuild("sa-log-global", ordsSABase+"/log/global/", false)
+	globalConfigVolumeMount := volumeMountBuild(globalConfigMapName, ordsSABase+"/config/global/", false)
+	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount)
+	if ords.Spec.GlobalSettings.CertSecret != nil {
+		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", false)
+		volumeMounts = append(volumeMounts, globalCertVolumeMount)
+	}
 
 	// Build volume specifications for each pool in poolSettings
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
@@ -584,11 +605,27 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 		poolWalletVolume := volumeBuild(poolWalletName, "EmptyDir")
 		poolConfigVolume := volumeBuild(poolConfigName, "ConfigMap")
 		volumes = append(volumes, poolWalletVolume, poolConfigVolume)
+		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
+			poolDBWalletVolume := volumeBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, "Secret")
+			volumes = append(volumes, poolDBWalletVolume)
+		}
+		if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
+			poolTNSAdminVolume := volumeBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, "Secret")
+			volumes = append(volumes, poolTNSAdminVolume)
+		}
 
 		// VolumeMounts
-		poolWalletVolumeMount := volumeMountBuild(poolWalletName, ordsConfigBase+"/databases/"+poolName+"/wallet", false)
-		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsConfigBase+"/databases/"+poolName+"/", false)
+		poolWalletVolumeMount := volumeMountBuild(poolWalletName, ordsSABase+"/config/databases/"+poolName+"/wallet/", false)
+		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", false)
 		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
+		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
+			poolDBWalletVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", false)
+			volumeMounts = append(volumeMounts, poolDBWalletVolumeMount)
+		}
+		if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
+			poolTNSAdminVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", false)
+			volumeMounts = append(volumeMounts, poolTNSAdminVolumeMount)
+		}
 	}
 	return volumes, volumeMounts
 }

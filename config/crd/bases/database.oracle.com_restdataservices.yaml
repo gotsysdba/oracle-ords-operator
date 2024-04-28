@@ -42,78 +42,103 @@ spec:
                 description: Contains settings that are configured across the entire
                   ORDS instance.
                 properties:
-                  cacheMetadataEnabled:
+                  cache.metadata.enabled:
+                    default: false
                     description: Specifies the setting to enable or disable metadata
                       caching.
                     type: boolean
-                  cacheMetadataGraphqlExpireAfterAccess:
-                    description: Specifies the duration after a GraphQL schema is
-                      not accessed from the cache that it expires.
+                  cache.metadata.graphql.expireAfterAccess:
+                    description: 'Specifies the duration after a GraphQL schema is
+                      not accessed from the cache that it expires. Default: 8h'
                     format: int64
                     type: integer
-                  cacheMetadataJwksEnabled:
+                  cache.metadata.jwks.enabled:
+                    default: true
                     description: Specifies the setting to enable or disable JWKS caching.
                     type: boolean
-                  cacheMetadataJwksExpireAfterAccess:
+                  cache.metadata.jwks.expireAfterAccess:
                     description: Specifies the duration after a JWK is not accessed
                       from the cache that it expires. By default this is disabled.
                     format: int64
                     type: integer
-                  cacheMetadataJwksExpireAfterWrite:
-                    description: Specifies the duration after a JWK is cached, that
-                      is, it expires and has to be loaded again.
+                  cache.metadata.jwks.expireAfterWrite:
+                    description: 'Specifies the duration after a JWK is cached, that
+                      is, it expires and has to be loaded again. Default: 5m'
                     format: int64
                     type: integer
-                  cacheMetadataJwksInitialCapacity:
+                  cache.metadata.jwks.initialCapacity:
                     description: Specifies the initial capacity of the JWKS cache.
                     format: int32
                     type: integer
-                  cacheMetadataJwksMaximumSize:
+                  cache.metadata.jwks.maximumSize:
                     description: Specifies the maximum capacity of the JWKS cache.
                     format: int32
                     type: integer
-                  cacheMetadataTimeout:
+                  cache.metadata.timeout:
                     description: Specifies the setting to determine for how long a
                       metadata record remains in the cache. Longer duration means,
                       it takes longer to view the applied changes. The formats accepted
                       are based on the ISO-8601 duration format.
-                    type: string
-                  databaseApiEnabled:
+                    format: int64
+                    type: integer
+                  certSecret:
+                    description: 'Specifies the Secret containing the SSL Certificates
+                      Replaces: standalone.https.cert and standalone.https.cert.key'
+                    properties:
+                      cert:
+                        type: string
+                      key:
+                        type: string
+                      secretName:
+                        type: string
+                    required:
+                    - cert
+                    - key
+                    - secretName
+                    type: object
+                  database.api.enabled:
+                    default: false
                     description: Specifies whether the Database API is enabled.
                     type: boolean
-                  databaseApiManagementServicesDisabled:
+                  database.api.management.services.disabled:
                     description: Specifies to disable the Database API administration
                       related services. Only applicable when Database API is enabled.
                     type: boolean
-                  dbInvalidPoolTimeout:
+                  db.invalidPoolTimeout:
                     description: 'Specifies how long to wait before retrying an invalid
                       pool. Default: 15m'
                     format: int64
                     type: integer
-                  debugPrintDebugToScreen:
+                  debug.printDebugToScreen:
+                    default: false
                     description: Specifies whether to display error messages on the
                       browser.
                     type: boolean
-                  errorResponseFormat:
+                  enable.standalone.access.log:
+                    default: false
+                    description: Specifies if HTTP request access logs should be enabled
+                      If enabled, logs will be written to /opt/oracle/sa/log/global
+                    type: boolean
+                  error.responseFormat:
                     default: auto
                     description: Specifies how the HTTP error responses must be formatted.
                       html - Force all responses to be in HTML format json - Force
                       all responses to be in JSON format auto - Automatically determines
                       most appropriate format for the request (default).
                     type: string
-                  featureGrahpqlMaxNestingDepth:
+                  feature.grahpql.max.nesting.depth:
                     default: 5
                     description: Specifies the maximum join nesting depth limit for
                       GraphQL queries.
                     format: int32
                     type: integer
-                  icapPort:
+                  icap.port:
                     description: Specifies the Internet Content Adaptation Protocol
                       (ICAP) port to virus scan files. Either icap.port or icap.secure.port
                       are required to have a value.
                     format: int32
                     type: integer
-                  icapSecurePort:
+                  icap.secure.port:
                     description: Specifies the Internet Content Adaptation Protocol
                       (ICAP) port to virus scan files. Either icap.port or icap.secure.port
                       are required to have a value. If values for both icap.port and
@@ -121,83 +146,91 @@ spec:
                       ignored.
                     format: int32
                     type: integer
-                  icapServer:
+                  icap.server:
                     description: Specifies the Internet Content Adaptation Protocol
                       (ICAP) server name or IP address to virus scan files. The icap.server
                       is required to have a value.
                     type: string
-                  logProcedure:
+                  log.procedure:
+                    default: false
                     description: Specifies whether procedures are to be logged.
                     type: boolean
-                  requestTraceHeaderName:
+                  request.traceHeaderName:
                     description: Specifies the name of the HTTP request header that
                       uniquely identifies the request end to end as it passes through
                       the various layers of the application stack. In Oracle this
                       header is commonly referred to as the ECID (Entity Context ID).
                     type: string
-                  securityCredentialsAttempts:
+                  security.credentials.attempts:
                     default: -1
                     description: Specifies the maximum number of unsuccessful password
                       attempts allowed. Enabled by setting a positive integer value.
                     format: int32
                     type: integer
-                  securityCredentialsLockTime:
-                    description: Specifies the period to lock the account that has
-                      exceeded maximum attempts. Defaults to 10m (10 minutes)
+                  security.credentials.lock.time:
+                    description: 'Specifies the period to lock the account that has
+                      exceeded maximum attempts. Default: 10m'
                     format: int64
                     type: integer
-                  securityDisableDefaultExclusionList:
+                  security.disableDefaultExclusionList:
+                    default: false
                     description: If this value is set to true, then the Oracle REST
                       Data Services internal exclusion list is not enforced. Oracle
                       recommends that you do not set this value to true.
                     type: boolean
-                  securityExclusionList:
+                  security.exclusionList:
                     description: Specifies a pattern for procedures, packages, or
                       schema names which are forbidden to be directly executed from
                       a browser.
                     type: string
-                  securityInclusionList:
+                  security.inclusionList:
                     description: Specifies a pattern for procedures, packages, or
                       schema names which are allowed to be directly executed from
                       a browser.
                     type: string
-                  securityMaxEntries:
+                  security.maxEntries:
                     default: 2000
                     description: Specifies the maximum number of cached procedure
                       validations. Set this value to 0 to force the validation procedure
                       to be invoked on each request.
                     format: int32
                     type: integer
-                  securityVerifySSL:
+                  security.verifySSL:
+                    default: true
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
-                  standaloneBinds:
+                  standalone.binds:
                     default: 0.0.0.0
                     description: Specifies the comma separated list of host names
                       or IP addresses to identify a specific network interface on
                       which to listen.
                     type: string
-                  standaloneContextPath:
+                  standalone.context.path:
                     default: /ords
                     description: Specifies the context path where ords is located.
                     type: string
-                  standaloneHttpPort:
+                  standalone.http.port:
                     description: Specifies the HTTP listen port. / +kubebuilder:default:=8080
                     format: int32
                     type: integer
-                  standaloneHttpsHost:
+                  standalone.https.host:
                     description: Specifies the SSL certificate hostname.
                     type: string
-                  standaloneHttpsPort:
+                  standalone.https.port:
                     default: 8443
                     description: Specifies the HTTPS listen port.
                     format: int32
                     type: integer
-                  standaloneStopTimeout:
-                    default: 10s
-                    description: Specifies the period for Standalone Mode to wait
-                      until it is gracefully shutdown.
+                  standalone.static.context.path:
+                    default: /i
+                    description: Specifies the Context path where APEX static resources
+                      are located.
                     type: string
+                  standalone.stop.timeout:
+                    description: 'Specifies the period for Standalone Mode to wait
+                      until it is gracefully shutdown. Default: 10s'
+                    format: int64
+                    type: integer
                 type: object
               image:
                 type: string
@@ -211,23 +244,32 @@ spec:
                 description: Contains settings for individual pools/databases
                 items:
                   properties:
-                    ApexSecurityUserRoles:
+                    apex.security.administrator.roles:
+                      description: Specifies the comma delimited list of additional
+                        roles to assign authenticated APEX administrator type users.
+                      type: string
+                    apex.security.user.roles:
                       description: Specifies the comma delimited list of additional
                         roles to assign authenticated regular APEX users.
                       type: string
-                    AutoupgradeApiAulocation:
-                      description: specifies a configuration setting for AutoUpgrade.jar
-                        location.
+                    db.adminUser:
+                      default: SYS AS SYSDBA
+                      description: Specifies the username for the database account
+                        that ORDS uses for administration operations in the database.
                       type: string
-                    AutoupgradeApiJvmlocation:
-                      description: Specifies a configuration setting for AutoUpgrade
-                        REST API JVM location.
+                    'db.cdb.adminUser ':
+                      default: SYS AS SYSDBA
+                      description: Specifies the username for the database account
+                        that ORDS uses for the Pluggable Database Lifecycle Management.
                       type: string
-                    AutoupgradeApiLoglocation:
-                      description: Specifies a configuration setting for AutoUpgrade
-                        REST API log location.
+                    db.connectionType:
+                      description: The type of connection.
+                      enum:
+                      - basic
+                      - tns
+                      - customurl
                       type: string
-                    DbCredentialsSource:
+                    db.credentialsSource:
                       default: pool
                       description: Specifies the source for database credentials when
                         creating a direct connection for running SQL statements. Value
@@ -236,44 +278,50 @@ spec:
                         connection. If the value request is used, then the credentials
                         in the request is used to create a JDBC connection and if
                         successful, grants the requestor SQL Developer role.
+                      enum:
+                      - pool
+                      - request
                       type: string
-                    DbPort:
+                    db.customURL:
+                      description: Specifies the JDBC URL connection to connect to
+                        the database.
+                      type: string
+                    db.hostname:
+                      description: Specifies the host system for the Oracle database.
+                      type: string
+                    db.poolDestroyTimeout:
+                      description: 'Indicates how long to wait to gracefully destroy
+                        a pool before moving to forcefully destroy all connections
+                        including borrowed ones. Default: 5m'
+                      format: int64
+                      type: integer
+                    db.port:
                       description: Specifies the database listener port.
                       format: int32
                       type: integer
-                    DbWalletZipPath:
-                      description: Specifies the path to a wallet archive containing
-                        connection details for the pool.
+                    db.serviceNameSuffix:
+                      description: Specifies that the pool points to a CDB, and that
+                        the PDBs connected to that CDB should be made addressable
+                        by Oracle REST Data Services
                       type: string
-                    JdbcAuthAdminRole:
-                      description: Identifies the database role that indicates that
-                        the database user must get the SQL Administrator role.
+                    db.servicename:
+                      description: Specifies the network service name of the database.
                       type: string
-                    JdbcMinLimit:
-                      default: 2
-                      description: Specifies the minimum number of connections.
-                      format: int32
-                      type: integer
-                    PlsqlGatewayMode:
-                      description: Indicates if the PL/SQL Gateway functionality should
-                        be available for a pool or not. Value can be one of disabled,
-                        direct, or proxied. If the value is direct, then the pool
-                        serves the PL/SQL Gateway requests directly. If the value
-                        is PLSQL_GATEWAY_CONFIG, view is used to determine the user
-                        to whom to proxy.
+                    db.sid:
+                      description: Specifies the name of the database.
                       type: string
-                    apexSecurityAdministratorRoles:
-                      description: Specifies the comma delimited list of additional
-                        roles to assign authenticated APEX administrator type users.
+                    db.tnsAliasName:
+                      description: Specifies the TNS alias name that matches the name
+                        in the tnsnames.ora file.
                       type: string
-                    autoupgradeApiEnabled:
-                      description: Specifies a configuration setting to enable AutoUpgrade
-                        REST API features.
-                      type: boolean
-                    dbAdminUser:
-                      default: SYS AS SYSDBA
-                      description: Specifies the username for the database account
-                        that ORDS uses for administration operations in the database.
+                    db.username:
+                      default: ORDS_PUBLIC_USER
+                      description: Specifies the name of the database user for the
+                        connection.
+                      type: string
+                    db.wallet.zip.service:
+                      description: Specifies the service name in the wallet archive
+                        for the pool.
                       type: string
                     dbAdminUserSecret:
                       description: Specifies the Secret with the dbAdminUser (SYS
@@ -288,12 +336,7 @@ spec:
                       required:
                       - secretName
                       type: object
-                    dbCdbAdminUser:
-                      default: SYS AS SYSDBA
-                      description: Specifies the username for the database account
-                        that ORDS uses for the Pluggable Database Lifecycle Management.
-                      type: string
-                    dbCdbAdminUserSecret:
+                    dbCDBAdminUserSecret:
                       description: Specifies the Secret with the dbCdbAdminUser (SYS
                         AS SYSDBA) and dbCdbAdminPassword values Specifies the username
                         for the database account that ORDS uses for the Pluggable
@@ -307,23 +350,6 @@ spec:
                       required:
                       - secretName
                       type: object
-                    dbConnectionType:
-                      description: 'The type of connection. Supported values: basic,
-                        tns, customurl'
-                      type: string
-                    dbCustomURL:
-                      description: Specifies the JDBC URL connection to connect to
-                        the database.
-                      type: string
-                    dbHostname:
-                      description: Specifies the host system for the Oracle database.
-                      type: string
-                    dbPoolDestroyTimeout:
-                      description: 'Indicates how long to wait to gracefully destroy
-                        a pool before moving to forcefully destroy all connections
-                        including borrowed ones. Default: 5m'
-                      format: int64
-                      type: integer
                     dbSecret:
                       description: Specifies the Secret with the dbUsername and dbPassword
                         values for the connection.
@@ -336,59 +362,84 @@ spec:
                       required:
                       - secretName
                       type: object
-                    dbServiceNameSuffix:
-                      description: Specifies that the pool points to a CDB, and that
-                        the PDBs connected to that CDB should be made addressable
-                        by Oracle REST Data Services
-                      type: string
-                    dbServicename:
-                      description: Specifies the network service name of the database.
-                      type: string
-                    dbSid:
-                      description: Specifies the name of the database.
-                      type: string
-                    dbTnsAliasName:
-                      description: Specifies the TNS alias name that matches the name
-                        in the tnsnames.ora file.
-                      type: string
-                    dbTnsDirectory:
-                      description: The directory location of your tnsnames.ora file.
-                      type: string
-                    dbUsername:
-                      default: ORDS_PUBLIC_USER
-                      description: Specifies the name of the database user for the
-                        connection.
-                      type: string
-                    dbWalletZip:
-                      description: Specifies the wallet archive (provided in BASE64
-                        encoding) containing connection details for the pool.
-                      type: string
-                    dbWalletZipService:
-                      description: Specifies the service name in the wallet archive
-                        for the pool.
-                      type: string
-                    debugTrackResources:
+                    dbWalletSecret:
+                      description: 'Specifies the Secret containing the wallet archive
+                        containing connection details for the pool. Replaces: db.wallet.zip'
+                      properties:
+                        secretName:
+                          type: string
+                        walletName:
+                          type: string
+                      required:
+                      - secretName
+                      - walletName
+                      type: object
+                    debug.trackResources:
                       description: Specifies to enable tracking of JDBC resources.
                         If not released causes in resource leaks or exhaustion in
                         the database. Tracking imposes a performance overhead.
                       type: boolean
-                    featureOpenservicebrokerExclude:
+                    feature.openservicebroker.exclude:
                       description: Specifies to disable the Open Service Broker services
                         available for the pool.
                       type: boolean
-                    featureSdw:
+                    feature.sdw:
                       description: Specifies to enable the Database Actions feature.
                       type: boolean
-                    httpCookieFilter:
+                    http.cookie.filter:
                       description: Specifies a comma separated list of HTTP Cookies
                         to exclude when initializing an Oracle Web Agent environment.
                       type: string
-                    jdbCleanupMode:
-                      default: RECYCLE
-                      description: Specifies how a pooled JDBC connection and corresponding
-                        database session, is released when a request has been processed.
+                    jdbc.DriverType:
+                      default: thin
+                      description: Specifies the JDBC driver type.
+                      enum:
+                      - thin
+                      - oci8
                       type: string
-                    jdbcAuthEnabled:
+                    jdbc.InactivityTimeout:
+                      default: 1800
+                      description: Specifies how long an available connection can
+                        remain idle before it is closed. The inactivity connection
+                        timeout is in seconds.
+                      format: int32
+                      type: integer
+                    jdbc.InitialLimit:
+                      default: 10
+                      description: Specifies the initial size for the number of connections
+                        that will be created. The default is low, and should probably
+                        be set higher in most production environments.
+                      format: int32
+                      type: integer
+                    jdbc.MaxConnectionReuseCount:
+                      default: 1000
+                      description: Specifies the maximum number of times to reuse
+                        a connection before it is discarded and replaced with a new
+                        connection.
+                      format: int32
+                      type: integer
+                    jdbc.MaxLimit:
+                      default: 10
+                      description: Specifies the maximum number of connections. Might
+                        be too low for some production environments.
+                      format: int32
+                      type: integer
+                    jdbc.MaxStatementsLimit:
+                      default: 10
+                      description: Specifies the maximum number of statements to cache
+                        for each connection.
+                      format: int32
+                      type: integer
+                    jdbc.MinLimit:
+                      default: 2
+                      description: Specifies the minimum number of connections.
+                      format: int32
+                      type: integer
+                    jdbc.auth.admin.role:
+                      description: Identifies the database role that indicates that
+                        the database user must get the SQL Administrator role.
+                      type: string
+                    jdbc.auth.enabled:
                       default: false
                       description: Specifies if the PL/SQL Gateway calls can be authenticated
                         using database users. If the value is true then this feature
@@ -396,44 +447,12 @@ spec:
                         Oracle recommends not to use this feature. This feature used
                         only to facilitate customers migrating from mod_plsql.
                       type: boolean
-                    jdbcDriverType:
-                      description: 'Specifies the JDBC driver type. Supported values:
-                        thin, oci8 / +kubebuilder:default:="thin"'
+                    jdbc.cleanup.mode:
+                      default: RECYCLE
+                      description: Specifies how a pooled JDBC connection and corresponding
+                        database session, is released when a request has been processed.
                       type: string
-                    jdbcInactivityTimeout:
-                      default: 1800
-                      description: Specifies how long an available connection can
-                        remain idle before it is closed. The inactivity connection
-                        timeout is in seconds.
-                      format: int32
-                      type: integer
-                    jdbcInitialLimit:
-                      default: 10
-                      description: Specifies the initial size for the number of connections
-                        that will be created. The default is low, and should probably
-                        be set higher in most production environments.
-                      format: int32
-                      type: integer
-                    jdbcMaxConnectionReuseCount:
-                      default: 1000
-                      description: Specifies the maximum number of times to reuse
-                        a connection before it is discarded and replaced with a new
-                        connection.
-                      format: int32
-                      type: integer
-                    jdbcMaxLimit:
-                      default: 10
-                      description: Specifies the maximum number of connections. Might
-                        be too low for some production environments.
-                      format: int32
-                      type: integer
-                    jdbcMaxStatementsLimit:
-                      default: 10
-                      description: Specifies the maximum number of statements to cache
-                        for each connection.
-                      format: int32
-                      type: integer
-                    jdbcStatementTimeout:
+                    jdbc.statementTimeout:
                       default: 900
                       description: Specifies a timeout period on a statement. An abnormally
                         long running query or script, executed by a request, may leave
@@ -443,11 +462,11 @@ spec:
                         specified time period.
                       format: int32
                       type: integer
-                    miscDefaultPage:
+                    misc.defaultPage:
                       description: Specifies the default page to display. The Oracle
                         REST Data Services Landing Page.
                       type: string
-                    miscPaginationMaxRows:
+                    misc.pagination.maxRows:
                       default: 10000
                       description: Specifies the maximum number of rows that will
                         be returned from a query when processing a RESTful service
@@ -456,11 +475,23 @@ spec:
                         query, regardless of whether the resource is paginated.
                       format: int32
                       type: integer
-                    owaTraceSql:
+                    owa.trace.sql:
                       description: If it is true, then it causes a trace of the SQL
                         statements performed by Oracle Web Agent to be echoed to the
                         log.
                       type: boolean
+                    plsql.gateway.mode:
+                      description: Indicates if the PL/SQL Gateway functionality should
+                        be available for a pool or not. Value can be one of disabled,
+                        direct, or proxied. If the value is direct, then the pool
+                        serves the PL/SQL Gateway requests directly. If the value
+                        is PLSQL_GATEWAY_CONFIG, view is used to determine the user
+                        to whom to proxy.
+                      enum:
+                      - disabled
+                      - direct
+                      - proxied
+                      type: string
                     poolAutoRestart:
                       default: false
                       description: Specifies to automatically restart the pods when
@@ -469,17 +500,12 @@ spec:
                     poolName:
                       description: Specifies the Pool Name
                       type: string
-                    procedurePostProcess:
-                      description: Specifies the procedure name(s) to execute after
-                        executing the procedure specified on the URL. Multiple procedure
-                        names must be separated by commas.
-                      type: string
-                    procedurePreProcess:
+                    procedure.preProcess:
                       description: Specifies the procedure name(s) to execute prior
                         to executing the procedure specified on the URL. Multiple
                         procedure names must be separated by commas.
                       type: string
-                    procedureRestPreHook:
+                    procedure.rest.preHook:
                       description: Specifies the function to be invoked prior to dispatching
                         each Oracle REST Data Services based REST Service. The function
                         can perform configuration of the database session, perform
@@ -489,50 +515,55 @@ spec:
                         of the request is aborted and an HTTP 403 Forbidden status
                         is returned.
                       type: string
-                    restEnabledSqlActive:
+                    procedurePostProcess:
+                      description: Specifies the procedure name(s) to execute after
+                        executing the procedure specified on the URL. Multiple procedure
+                        names must be separated by commas.
+                      type: string
+                    restEnabledSql.active:
                       default: false
                       description: Specifies whether the REST-Enabled SQL service
                         is active.
                       type: boolean
-                    securityJwksConnectionTimeout:
-                      description: Specifies the maximum amount of time before timing-out
-                        when accessing a JWK url. Default is 5 seconds.
+                    security.jwks.connection.timeout:
+                      description: 'Specifies the maximum amount of time before timing-out
+                        when accessing a JWK url. Default: 5s'
                       format: int64
                       type: integer
-                    securityJwksReadTimeout:
-                      description: Specifies the maximum amount of time reading a
-                        response from the JWK url before timing-out. Default is 5
-                        seconds.
+                    security.jwks.read.timeout:
+                      description: 'Specifies the maximum amount of time reading a
+                        response from the JWK url before timing-out. Default: 5s'
                       format: int64
                       type: integer
-                    securityJwksRefreshInterval:
+                    security.jwks.refresh.interval:
                       description: Specifies the minimum interval between refreshing
                         the JWK cached value.
                       format: int64
                       type: integer
-                    securityJwksSize:
+                    security.jwks.size:
+                      default: 100000
                       description: Specifies the maximum number of bytes read from
-                        the JWK url. Default 100000 bytes.
+                        the JWK url.
                       format: int32
                       type: integer
-                    securityJwtAllowedAge:
+                    security.jwt.allowed.age:
                       description: Specifies the maximum allowed age of a JWT in seconds,
                         regardless of expired claim. The age of the JWT is taken from
                         the JWT issued at claim. By default, it is disabled.
                       format: int64
                       type: integer
-                    securityJwtAllowedSkew:
+                    security.jwt.allowed.skew:
                       description: Specifies the maximum skew the JWT time claims
                         are accepted. This is useful if the clock on the JWT issuer
                         and ORDS differs by a few seconds. By default, it is disabled.
                       format: int64
                       type: integer
-                    securityJwtProfileEnabled:
+                    security.jwt.profile.enabled:
                       default: true
                       description: 'Specifies whether the JWT Profile authentication
                         is available. Supported values:'
                       type: boolean
-                    securityRequestAuthenticationFunction:
+                    security.requestAuthenticationFunction:
                       description: Specifies an authentication function to determine
                         if the requested procedure in the URL should be allowed or
                         disallowed for processing. The function should return true
@@ -540,24 +571,28 @@ spec:
                         If it returns false, Oracle REST Data Services will return
                         WWW-Authenticate in the response header.
                       type: string
-                    securityRequestValidationFunction:
+                    security.requestValidationFunction:
                       description: Specifies a validation function to determine if
                         the requested procedure in the URL should be allowed or disallowed
                         for processing. The function should return true if the procedure
                         is allowed; otherwise, return false.
                       type: string
-                    securityValidationFunctionType:
+                    security.validationFunctionType:
+                      default: plsql
                       description: 'Indicates the type of security.requestValidationFunction:
-                        javascript or plsql. / +kubebuilder:default:="plsql"'
+                        javascript or plsql.'
+                      enum:
+                      - plsql
+                      - javascript
                       type: string
-                    sodaDefaultLimit:
+                    soda.defaultLimit:
                       default: "100"
                       description: When using the SODA REST API, specifies the default
                         number of documents returned for a GET request on a collection
                         when a limit is not specified in the URL. Must be a positive
                         integer, or "unlimited" for no limit.
                       type: string
-                    sodaMaxLimit:
+                    soda.maxLimit:
                       default: "1000"
                       description: When using the SODA REST API, specifies the maximum
                         number of documents that will be returned for a GET request
@@ -565,9 +600,18 @@ spec:
                         the URL. Must be a positive integer, or "unlimited" for no
                         limit.
                       type: string
+                    tnsAdminSecret:
+                      description: 'Specifies the Secret containing the TNS_ADMIN
+                        directory Replaces: db.tnsDirectory'
+                      properties:
+                        secretName:
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                   required:
+                  - db.username
                   - dbSecret
-                  - dbUsername
                   - poolAutoRestart
                   - poolName
                   type: object
