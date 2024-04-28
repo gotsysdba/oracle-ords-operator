@@ -86,11 +86,17 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
+  - secrets
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets/status
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
