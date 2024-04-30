@@ -140,7 +140,6 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHTTPPort) +
 				conditionalEntry("standalone.https.host", ords.Spec.GlobalSettings.StandaloneHTTPSHost) +
 				conditionalEntry("standalone.https.port", ords.Spec.GlobalSettings.StandaloneHTTPSPort) +
-				conditionalEntry("standalone.static.context.path", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
 				conditionalEntry("standalone.stop.timeout", ords.Spec.GlobalSettings.StandaloneStopTimeout) +
 				conditionalEntry("cache.metadata.timeout", ords.Spec.GlobalSettings.CacheMetadataTimeout) +
 				conditionalEntry("cache.metadata.enabled", ords.Spec.GlobalSettings.CacheMetadataEnabled) +
@@ -167,6 +166,7 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				// conditionalEntry("security.credentials.file ", ords.Spec.GlobalSettings.SecurityCredentialsFile) +
 				// conditionalEntry("standalone.static.path", ords.Spec.GlobalSettings.StandaloneStaticPath) +
 				// conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
+				// conditionalEntry("standalone.static.context.path", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
 				`</properties>`),
 		}
 	} else {

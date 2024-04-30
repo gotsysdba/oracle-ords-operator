@@ -230,11 +230,6 @@ spec:
                     description: Specifies the HTTPS listen port.
                     format: int32
                     type: integer
-                  standalone.static.context.path:
-                    default: /i
-                    description: Specifies the Context path where APEX static resources
-                      are located.
-                    type: string
                   standalone.stop.timeout:
                     description: 'Specifies the period for Standalone Mode to wait
                       until it is gracefully shutdown. Default: 10s'
@@ -261,9 +256,15 @@ spec:
                       description: Specifies the comma delimited list of additional
                         roles to assign authenticated regular APEX users.
                       type: string
-                    autoUpgrade:
+                    autoUpgradeAPEX:
                       default: false
-                      description: Specify whether to perform installation/upgrades
+                      description: Specify whether to perform APEX installation/upgrades
+                        automatically The db.adminUser and db.adminUser.secret must
+                        be set, otherwise setting is ignored
+                      type: boolean
+                    autoUpgradeORDS:
+                      default: false
+                      description: Specify whether to perform ORDS installation/upgrades
                         automatically The db.adminUser and db.adminUser.secret must
                         be set, otherwise setting is ignored
                       type: boolean
@@ -501,8 +502,8 @@ spec:
                         be available for a pool or not. Value can be one of disabled,
                         direct, or proxied. If the value is direct, then the pool
                         serves the PL/SQL Gateway requests directly. If the value
-                        is PLSQL_GATEWAY_CONFIG, view is used to determine the user
-                        to whom to proxy.
+                        is proxied, the PLSQL_GATEWAY_CONFIG view is used to determine
+                        the user to whom to proxy.
                       enum:
                       - disabled
                       - direct

@@ -50,7 +50,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     spec:
       replicas: 1
       image:
-          pullFrom: container-registry.oracle.com/database/free:latest
+          pullFrom: container-registry.oracle.com/database/free:23.3.0.0
           prebuiltDB: true
       sid: FREE
       edition: free
@@ -99,7 +99,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     metadata:
       name: ordspoc-server
     spec:
-      image: container-registry.oracle.com/database/ords:latest
+      image: container-registry.oracle.com/database/ords:24.1.0
       forceRestart: true
       globalSettings:
         database.api.enabled: true
@@ -115,7 +115,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
           db.secret:
             secretName:  db-auth
             passwordKey: password
-          db.adminUser: SYS AS SYSDBA
+          db.adminUser: SYS
           db.adminUser.secret:
             secretName:  db-auth
             passwordKey: password

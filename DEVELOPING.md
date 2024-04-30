@@ -34,7 +34,7 @@ Note the following images are pulled as part of the development:
 * docker.io/kindest/node:v1.29.2 (when using Kind)
 * docker.io/moby/buildkit:buildx-stable-1
 * container-registry.oracle.com/os/oraclelinux:9-slim
-* container-registry.oracle.com/database/ords:23.4.0
+* container-registry.oracle.com/database/ords:24.1.0
 
 #### MacOS(Intel)
 This example was tested on MacOS(Intel) using a Kind cluster and `podman`.

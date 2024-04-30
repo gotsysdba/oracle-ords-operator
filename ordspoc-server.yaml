@@ -3,7 +3,7 @@ kind: RestDataServices
 metadata:
   name: ordspoc-server
 spec:
-  image: container-registry.oracle.com/database/ords:latest
+  image: container-registry.oracle.com/database/ords:24.1.0
   forceRestart: true
   globalSettings:
     database.api.enabled: true
