@@ -9,17 +9,16 @@ spec:
     database.api.enabled: true
   poolSettings:
     - poolName: ORDSPOC
-      autoUpgrade: true
       restEnabledSql.active: true
       feature.sdw: true
+      plsql.gateway.mode: direct
       db.connectionType: customurl
-      db.customURL: jdbc:oracle:thin:@//10.89.0.2:30453/FREEPDB1
+      db.customURL: jdbc:oracle:thin:@//10.89.0.2:30677/FREEPDB1
       db.username: ORDS_PUBLIC_USER
       db.secret:
         secretName:  db-auth
         passwordKey: password
-      db.adminUser: SYS AS SYSDBA
+      db.adminUser: SYS
       db.adminUser.secret:
         secretName:  db-auth
         passwordKey: password
-      plsql.gateway.mode: direct

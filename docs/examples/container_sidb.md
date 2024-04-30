@@ -35,6 +35,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
 
     ```bash
     DB_PWD=$(echo "ORDSPOC_$(date +%H%S%M)")
+
     kubectl create secret generic db-auth \
         --from-literal=password=${DB_PWD}
     ```
@@ -81,6 +82,8 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     ```bash
     CONN_STRING=$(kubectl get singleinstancedatabase ordspoc-sidb \
         -o jsonpath='{.status.pdbConnectString}')
+
+    echo $CONN_STRING
     ```
 
 1. Create a manifest for ORDS.
@@ -105,10 +108,9 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
         database.api.enabled: true
       poolSettings:
         - poolName: ORDSPOC
-          autoUpgrade: true
           restEnabledSql.active: true
           feature.sdw: true
-          plsql.gateway.mode: proxied
+          plsql.gateway.mode: direct
           db.connectionType: customurl
           db.customURL: jdbc:oracle:thin:@//${CONN_STRING}
           db.username: ORDS_PUBLIC_USER
