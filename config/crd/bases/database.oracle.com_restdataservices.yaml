@@ -34,7 +34,7 @@ spec:
           spec:
             description: RestDataServicesSpec defines the desired state of RestDataServices
             properties:
-              autoRestart:
+              forceRestart:
                 description: Specifies whether to restart pods when Global or Pool
                   configurations change
                 type: boolean
@@ -183,6 +183,20 @@ spec:
                       schema names which are forbidden to be directly executed from
                       a browser.
                     type: string
+                  security.externalSessionTrustedOrigins:
+                    description: Specifies to trust Access from originating domains
+                    type: string
+                  security.forceHTTPS:
+                    default: false
+                    description: Specifies to force HTTPS; this is set to default
+                      to false as in real-world TLS should terminiate at the LoadBalancer
+                    type: boolean
+                  security.httpsHeaderCheck:
+                    description: '************************************************
+                      * Undocumented /***********************************************
+                      Specifies that the HTTP Header contains the specified text Usually
+                      set to ''X-Forwarded-Proto: https'' coming from a load-balancer'
+                    type: string
                   security.inclusionList:
                     description: Specifies a pattern for procedures, packages, or
                       schema names which are allowed to be directly executed from
@@ -199,18 +213,13 @@ spec:
                     default: true
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
-                  standalone.binds:
-                    default: 0.0.0.0
-                    description: Specifies the comma separated list of host names
-                      or IP addresses to identify a specific network interface on
-                      which to listen.
-                    type: string
                   standalone.context.path:
                     default: /ords
                     description: Specifies the context path where ords is located.
                     type: string
                   standalone.http.port:
-                    description: Specifies the HTTP listen port. / +kubebuilder:default:=8080
+                    default: 8080
+                    description: Specifies the HTTP listen port.
                     format: int32
                     type: integer
                   standalone.https.host:
@@ -252,16 +261,50 @@ spec:
                       description: Specifies the comma delimited list of additional
                         roles to assign authenticated regular APEX users.
                       type: string
+                    autoUpgrade:
+                      default: false
+                      description: Specify whether to perform installation/upgrades
+                        automatically The db.adminUser and db.adminUser.secret must
+                        be set, otherwise setting is ignored
+                      type: boolean
                     db.adminUser:
                       default: SYS AS SYSDBA
                       description: Specifies the username for the database account
                         that ORDS uses for administration operations in the database.
                       type: string
-                    'db.cdb.adminUser ':
+                    db.adminUser.secret:
+                      description: 'Specifies the Secret with the dbAdminUser (SYS
+                        AS SYSDBA) and dbAdminPassword values for the database account
+                        that ORDS uses for administration operations in the database.
+                        replaces: db.adminUser.password'
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                      required:
+                      - secretName
+                      type: object
+                    db.cdb.adminUser:
                       default: SYS AS SYSDBA
                       description: Specifies the username for the database account
                         that ORDS uses for the Pluggable Database Lifecycle Management.
                       type: string
+                    db.cdb.adminUser.secret:
+                      description: 'Specifies the Secret with the dbCdbAdminUser (SYS
+                        AS SYSDBA) and dbCdbAdminPassword values Specifies the username
+                        for the database account that ORDS uses for the Pluggable
+                        Database Lifecycle Management. Replaces: db.cdb.adminUser.password'
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     db.connectionType:
                       description: The type of connection.
                       enum:
@@ -299,6 +342,18 @@ spec:
                       description: Specifies the database listener port.
                       format: int32
                       type: integer
+                    db.secret:
+                      description: 'Specifies the Secret with the dbUsername and dbPassword
+                        values for the connection.  Replaces:'
+                      properties:
+                        passwordKey:
+                          default: password
+                          type: string
+                        secretName:
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     db.serviceNameSuffix:
                       description: Specifies that the pool points to a CDB, and that
                         the PDBs connected to that CDB should be made addressable
@@ -323,45 +378,6 @@ spec:
                       description: Specifies the service name in the wallet archive
                         for the pool.
                       type: string
-                    dbAdminUserSecret:
-                      description: Specifies the Secret with the dbAdminUser (SYS
-                        AS SYSDBA) and dbAdminPassword values for the database account
-                        that ORDS uses for administration operations in the database.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    dbCDBAdminUserSecret:
-                      description: Specifies the Secret with the dbCdbAdminUser (SYS
-                        AS SYSDBA) and dbCdbAdminPassword values Specifies the username
-                        for the database account that ORDS uses for the Pluggable
-                        Database Lifecycle Management.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    dbSecret:
-                      description: Specifies the Secret with the dbUsername and dbPassword
-                        values for the connection.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
                     dbWalletSecret:
                       description: 'Specifies the Secret containing the wallet archive
                         containing connection details for the pool. Replaces: db.wallet.zip'
@@ -492,11 +508,6 @@ spec:
                       - direct
                       - proxied
                       type: string
-                    poolAutoRestart:
-                      default: false
-                      description: Specifies to automatically restart the pods when
-                        configuration changes are made
-                      type: boolean
                     poolName:
                       description: Specifies the Pool Name
                       type: string
@@ -610,17 +621,18 @@ spec:
                       - secretName
                       type: object
                   required:
+                  - db.secret
                   - db.username
-                  - dbSecret
-                  - poolAutoRestart
                   - poolName
                   type: object
                 type: array
               replicas:
+                default: 1
                 format: int32
                 minimum: 1
                 type: integer
               workloadType:
+                default: Deployment
                 enum:
                 - Deployment
                 - StatefulSet

@@ -140,8 +140,8 @@ func (in *GlobalSettings) DeepCopyInto(out *GlobalSettings) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.StandaloneHttpsPort != nil {
-		in, out := &in.StandaloneHttpsPort, &out.StandaloneHttpsPort
+	if in.StandaloneHTTPSPort != nil {
+		in, out := &in.StandaloneHTTPSPort, &out.StandaloneHTTPSPort
 		*out = new(int32)
 		**out = **in
 	}

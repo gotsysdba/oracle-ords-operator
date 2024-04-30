@@ -1,7 +1,10 @@
-# oracle-ords-operator
-// TODO(user): Add simple overview of use/purpose
+# Oracle Rest Data Services (ORDS) Operator for Kubernetes
 
 ## Description
+
+As part of Oracle's initive of 
+
+
 // TODO(user): An in-depth paragraph about your project and overview of use
 
 ## Getting Started
@@ -69,6 +72,10 @@ More information can be found via the [Kubebuilder Documentation](https://book.k
 
 ## Contributing
 See [Contributing to this Repository](./CONTRIBUTING.md)
+
+## Reporting a Security Issue
+
+See [Reporting security vulnerabilities](./SECURITY.md)
 
 ## License
 

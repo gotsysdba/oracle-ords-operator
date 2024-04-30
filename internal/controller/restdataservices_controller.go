@@ -45,6 +45,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -66,14 +67,16 @@ import (
 
 // Definitions of Standards
 const (
-	ordsSABase          = "/opt/oracle/sa"
-	servicePortName     = "sa-svc-port"
-	targetPortName      = "sa-pod-port"
-	globalConfigMapName = "sa-settings-global"
-	poolConfigPreName   = "sa-settings-" // Append PoolName
-	controllerLabelKey  = "oracle.com/ords-operator-filter"
-	controllerLabelVal  = "oracle-ords-operator"
-	specHashLabel       = "oracle.com/ords-operator-spec-hash"
+	ordsSABase           = "/opt/oracle/sa"
+	serviceHTTPPortName  = "svc-http-port"
+	serviceHTTPSPortName = "svc-https-port"
+	targetHTTPPortName   = "pod-http-port"
+	targetHTTPSPortName  = "pod-https-port"
+	globalConfigMapName  = "settings-global"
+	poolConfigPreName    = "settings-" // Append PoolName
+	controllerLabelKey   = "oracle.com/ords-operator-filter"
+	controllerLabelVal   = "oracle-ords-operator"
+	specHashLabel        = "oracle.com/ords-operator-spec-hash"
 )
 
 // Trigger a restart of Pods on Config Changes
@@ -130,8 +133,14 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, err
 	}
 
+	// ConfigMap - Init Script
+	if err := r.ConfigMapReconcile(ctx, ords, ords.Name+"-"+"init-script", 0); err != nil {
+		logr.Error(err, "Error in ConfigMapReconcile (init-script)")
+		return ctrl.Result{}, err
+	}
+
 	// ConfigMap - Global Settings
-	if err := r.ConfigMapReconcile(ctx, ords, globalConfigMapName, 0); err != nil {
+	if err := r.ConfigMapReconcile(ctx, ords, ords.Name+"-"+globalConfigMapName, 0); err != nil {
 		logr.Error(err, "Error in ConfigMapReconcile (Global)")
 		return ctrl.Result{}, err
 	}
@@ -139,7 +148,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// ConfigMap - Pool Settings
 	definedPools := make(map[string]bool)
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
-		poolConfigMapName := poolConfigPreName + strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
+		poolConfigMapName := ords.Name + "-" + poolConfigPreName + strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
 		definedPools[poolConfigMapName] = true
 		if err := r.ConfigMapReconcile(ctx, ords, poolConfigMapName, i); err != nil {
 			logr.Error(err, "Error in ConfigMapReconcile (Pools)")
@@ -185,7 +194,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 				return err
 			}
 			logr.Info("Created: " + configMapName)
-			restartPods = ords.Spec.AutoRestart
+			restartPods = ords.Spec.ForceRestart
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "ConfigMap %s Created", configMapName)
 			// Requery for comparison
 			r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: ords.Namespace}, definedConfigMap)
@@ -198,7 +207,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 			return err
 		}
 		logr.Info("Updated: " + configMapName)
-		restartPods = ords.Spec.AutoRestart
+		restartPods = ords.Spec.ForceRestart
 		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "ConfigMap %s Updated", configMapName)
 	}
 
@@ -310,11 +319,9 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords *databasev1.RestDataServices) (err error) {
 	logr := log.FromContext(ctx).WithName("ServiceReconcile")
 
-	port := int32(80)
-	if ords.Spec.GlobalSettings.StandaloneHTTPPort != nil {
-		port = *ords.Spec.GlobalSettings.StandaloneHTTPPort
-	}
-	desiredService := r.ServiceDefine(ctx, ords, port)
+	HTTPport := *ords.Spec.GlobalSettings.StandaloneHTTPPort
+	HTTPSport := *ords.Spec.GlobalSettings.StandaloneHTTPSPort
+	desiredService := r.ServiceDefine(ctx, ords, HTTPport, HTTPSport)
 
 	definedService := &corev1.Service{}
 	if err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService); err != nil {
@@ -332,173 +339,34 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 	}
 
 	for _, existingPort := range definedService.Spec.Ports {
-		if existingPort.Name == servicePortName {
-			if existingPort.Port != port {
+		if existingPort.Name == serviceHTTPPortName {
+			if existingPort.Port != HTTPport {
 				if err := r.Update(ctx, desiredService); err != nil {
 					return err
 				}
-				logr.Info("Updated Service Port: " + existingPort.Name)
-				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service Port %s Updated", existingPort.Name)
+				logr.Info("Updated HTTP Service Port: " + existingPort.Name)
+				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service HTTP Port %s Updated", existingPort.Name)
+			}
+		}
+		if existingPort.Name == serviceHTTPSPortName {
+			if existingPort.Port != HTTPSport {
+				if err := r.Update(ctx, desiredService); err != nil {
+					return err
+				}
+				logr.Info("Updated HTTPS Service Port: " + existingPort.Name)
+				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service HTTPS Port %s Updated", existingPort.Name)
 			}
 		}
 	}
 	return nil
 }
 
-/*************************************************
- * Definers
- /************************************************/
-// ConfigMap
-func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *databasev1.RestDataServices, configMapName string, poolIndex int) *corev1.ConfigMap {
-	defData := make(map[string]string)
-	if configMapName == globalConfigMapName {
-		// GlobalConfigMap
-		var defAccessLog string
-		if ords.Spec.GlobalSettings.EnableStandaloneAccessLog {
-			defAccessLog = `  <entry key="standalone.access.log">` + ordsSABase + `/log/global</entry>` + "\n"
-		}
-		var defCert string
-		if ords.Spec.GlobalSettings.CertSecret != nil {
-			defCert = `  <entry key="standalone.https.cert">` + ordsSABase + `/config/certficate/` + ords.Spec.GlobalSettings.CertSecret.Certificate + `</entry>` + "\n" +
-				`  <entry key="standalone.https.cert.key">` + ordsSABase + `/config/certficate/` + ords.Spec.GlobalSettings.CertSecret.CertificateKey + `</entry>` + "\n"
-		}
-		defData = map[string]string{
-			"settings.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
-				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
-				`<properties>` + "\n" +
-				conditionalEntry("cache.metadata.graphql.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataGraphQLExpireAfterAccess) +
-				conditionalEntry("cache.metadata.jwks.enabled", ords.Spec.GlobalSettings.CacheMetadataJWKSEnabled) +
-				conditionalEntry("cache.metadata.jwks.initialCapacity", ords.Spec.GlobalSettings.CacheMetadataJWKSInitialCapacity) +
-				conditionalEntry("cache.metadata.jwks.maximumSize", ords.Spec.GlobalSettings.CacheMetadataJWKSMaximumSize) +
-				conditionalEntry("cache.metadata.jwks.expireAfterAccess", ords.Spec.GlobalSettings.CacheMetadataJWKSExpireAfterAccess) +
-				conditionalEntry("cache.metadata.jwks.expireAfterWrite", ords.Spec.GlobalSettings.CacheMetadataJWKSExpireAfterWrite) +
-				conditionalEntry("database.api.management.services.disabled", ords.Spec.GlobalSettings.DatabaseAPIManagementServicesDisabled) +
-				conditionalEntry("db.invalidPoolTimeout", ords.Spec.GlobalSettings.DBInvalidPoolTimeout) +
-				conditionalEntry("feature.graphql.max.nesting.depth", ords.Spec.GlobalSettings.FeatureGraphQLMaxNestingDepth) +
-				conditionalEntry("request.traceHeaderName", ords.Spec.GlobalSettings.RequestTraceHeaderName) +
-				conditionalEntry("security.credentials.attempts ", ords.Spec.GlobalSettings.SecurityCredentialsAttempts) +
-				conditionalEntry("security.credentials.lock.time ", ords.Spec.GlobalSettings.SecurityCredentialsLockTime) +
-				conditionalEntry("standalone.binds", ords.Spec.GlobalSettings.StandaloneBinds) +
-				conditionalEntry("standalone.context.path ", ords.Spec.GlobalSettings.StandaloneContextPath) +
-				conditionalEntry("standalone.http.port", ords.Spec.GlobalSettings.StandaloneHTTPPort) +
-				conditionalEntry("standalone.https.host", ords.Spec.GlobalSettings.StandaloneHttpsHost) +
-				conditionalEntry("standalone.https.port", ords.Spec.GlobalSettings.StandaloneHttpsPort) +
-				conditionalEntry("standalone.static.context.path ", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
-				conditionalEntry("standalone.stop.timeout ", ords.Spec.GlobalSettings.StandaloneStopTimeout) +
-				conditionalEntry("cache.metadata.timeout", ords.Spec.GlobalSettings.CacheMetadataTimeout) +
-				conditionalEntry("cache.metadata.enabled", ords.Spec.GlobalSettings.CacheMetadataEnabled) +
-				conditionalEntry("database.api.enabled", ords.Spec.GlobalSettings.DatabaseAPIEnabled) +
-				conditionalEntry("debug.printDebugToScreen", ords.Spec.GlobalSettings.DebugPrintDebugToScreen) +
-				conditionalEntry("error.responseFormat", ords.Spec.GlobalSettings.ErrorResponseFormat) +
-				conditionalEntry("icap.port", ords.Spec.GlobalSettings.ICAPPort) +
-				conditionalEntry("icap.secure.port", ords.Spec.GlobalSettings.ICAPSecurePort) +
-				conditionalEntry("icap.server", ords.Spec.GlobalSettings.ICAPServer) +
-				conditionalEntry("log.procedure", ords.Spec.GlobalSettings.LogProcedure) +
-				conditionalEntry("security.disableDefaultExclusionList", ords.Spec.GlobalSettings.SecurityDisableDefaultExclusionList) +
-				conditionalEntry("security.exclusionList", ords.Spec.GlobalSettings.SecurityExclusionList) +
-				conditionalEntry("security.inclusionList", ords.Spec.GlobalSettings.SecurityInclusionList) +
-				conditionalEntry("security.maxEntries", ords.Spec.GlobalSettings.SecurityMaxEntries) +
-				conditionalEntry("security.verifySSL", ords.Spec.GlobalSettings.SecurityVerifySSL) +
-				defAccessLog +
-				defCert +
-				// Disabled (but not forgotten)
-				// conditionalEntry("error.externalPath", ords.Spec.GlobalSettings.ErrorExternalPath) +
-				// conditionalEntry("security.credentials.file ", ords.Spec.GlobalSettings.SecurityCredentialsFile) +
-				// conditionalEntry("standalone.static.path", ords.Spec.GlobalSettings.StandaloneStaticPath) +
-				// conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
-				`</properties>`),
-		}
-	} else {
-		// PoolConfigMap
-		poolName := strings.ToLower(ords.Spec.PoolSettings[poolIndex].PoolName)
-		var defDBWalletZip string
-		if ords.Spec.PoolSettings[poolIndex].DBWalletSecret != nil {
-			defDBWalletZip = `  <entry key="db.wallet.zip">` + ords.Spec.PoolSettings[poolIndex].DBWalletSecret.WalletName + `/log/global</entry>` + "\n"
-		}
-		defData = map[string]string{
-			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
-				`<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">` + "\n" +
-				`<properties>` + "\n" +
-				`  <entry key="db.username">` + ords.Spec.PoolSettings[poolIndex].DBUsername + `</entry>` + "\n" +
-				conditionalEntry("db.adminUser", ords.Spec.PoolSettings[poolIndex].DBAdminUser) +
-				conditionalEntry("db.cdb.adminUser", ords.Spec.PoolSettings[poolIndex].DBCDBAdminUser) +
-				conditionalEntry("apex.security.administrator.roles", ords.Spec.PoolSettings[poolIndex].ApexSecurityAdministratorRoles) +
-				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings[poolIndex].ApexSecurityUserRoles) +
-				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings[poolIndex].DBCredentialsSource) +
-				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings[poolIndex].DBPoolDestroyTimeout) +
-				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings[poolIndex].DBWalletZipService) +
-				conditionalEntry("debug.trackResources", ords.Spec.PoolSettings[poolIndex].DebugTrackResources) +
-				conditionalEntry("feature.openservicebroker.exclude", ords.Spec.PoolSettings[poolIndex].FeatureOpenservicebrokerExclude) +
-				conditionalEntry("feature.sdw", ords.Spec.PoolSettings[poolIndex].FeatureSDW) +
-				conditionalEntry("http.cookie.filter", ords.Spec.PoolSettings[poolIndex].HttpCookieFilter) +
-				conditionalEntry("jdbc.auth.admin.role", ords.Spec.PoolSettings[poolIndex].JDBCAuthAdminRole) +
-				conditionalEntry("jdbc.cleanup.mode", ords.Spec.PoolSettings[poolIndex].JDBCCleanupMode) +
-				conditionalEntry("owa.trace.sql", ords.Spec.PoolSettings[poolIndex].OwaTraceSql) +
-				conditionalEntry("plsql.gateway.mode", ords.Spec.PoolSettings[poolIndex].PlsqlGatewayMode) +
-				conditionalEntry("security.jwt.profile.enabled", ords.Spec.PoolSettings[poolIndex].SecurityJWTProfileEnabled) +
-				conditionalEntry("security.jwks.size", ords.Spec.PoolSettings[poolIndex].SecurityJWKSSize) +
-				conditionalEntry("security.jwks.connection.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJWKSConnectionTimeout) +
-				conditionalEntry("security.jwks.read.timeout", ords.Spec.PoolSettings[poolIndex].SecurityJWKSReadTimeout) +
-				conditionalEntry("security.jwks.refresh.interval", ords.Spec.PoolSettings[poolIndex].SecurityJWKSRefreshInterval) +
-				conditionalEntry("security.jwt.allowed.skew", ords.Spec.PoolSettings[poolIndex].SecurityJWTAllowedSkew) +
-				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings[poolIndex].SecurityJWTAllowedAge) +
-				conditionalEntry("security.jwt.allowed.age", ords.Spec.PoolSettings[poolIndex].SecurityValidationFunctionType) +
-				conditionalEntry("db.connectionType", ords.Spec.PoolSettings[poolIndex].DBConnectionType) +
-				conditionalEntry("db.customURL", ords.Spec.PoolSettings[poolIndex].DBCustomURL) +
-				conditionalEntry("db.hostname", ords.Spec.PoolSettings[poolIndex].DBHostname) +
-				conditionalEntry("db.port", ords.Spec.PoolSettings[poolIndex].DBPort) +
-				conditionalEntry("db.servicename", ords.Spec.PoolSettings[poolIndex].DBServicename) +
-				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings[poolIndex].DBServiceNameSuffix) +
-				conditionalEntry("db.sid", ords.Spec.PoolSettings[poolIndex].DBSid) +
-				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings[poolIndex].DBTnsAliasName) +
-				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings[poolIndex].JDBCDriverType) +
-				conditionalEntry("jdbc.InactivityTimeout", ords.Spec.PoolSettings[poolIndex].JDBCInactivityTimeout) +
-				conditionalEntry("jdbc.InitialLimit", ords.Spec.PoolSettings[poolIndex].JDBCInitialLimit) +
-				conditionalEntry("jdbc.MaxConnectionReuseCount", ords.Spec.PoolSettings[poolIndex].JDBCMaxConnectionReuseCount) +
-				conditionalEntry("jdbc.MaxLimit", ords.Spec.PoolSettings[poolIndex].JDBCMaxLimit) +
-				conditionalEntry("jdbc.auth.enabled", ords.Spec.PoolSettings[poolIndex].JDBCAuthEnabled) +
-				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings[poolIndex].JDBCMaxStatementsLimit) +
-				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings[poolIndex].JDBCMinLimit) +
-				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings[poolIndex].JDBCStatementTimeout) +
-				conditionalEntry("misc.defaultPage", ords.Spec.PoolSettings[poolIndex].MiscDefaultPage) +
-				conditionalEntry("misc.pagination.maxRows", ords.Spec.PoolSettings[poolIndex].MiscPaginationMaxRows) +
-				conditionalEntry("procedure.postProcess", ords.Spec.PoolSettings[poolIndex].ProcedurePostProcess) +
-				conditionalEntry("procedure.preProcess", ords.Spec.PoolSettings[poolIndex].ProcedurePreProcess) +
-				conditionalEntry("procedure.rest.preHook", ords.Spec.PoolSettings[poolIndex].ProcedureRestPreHook) +
-				conditionalEntry("security.requestAuthenticationFunction", ords.Spec.PoolSettings[poolIndex].SecurityRequestAuthenticationFunction) +
-				conditionalEntry("security.requestValidationFunction", ords.Spec.PoolSettings[poolIndex].SecurityRequestValidationFunction) +
-				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings[poolIndex].SODADefaultLimit) +
-				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings[poolIndex].SODAMaxLimit) +
-				conditionalEntry("restEnabledSql.active", ords.Spec.PoolSettings[poolIndex].RestEnabledSqlActive) +
-				`  <entry key="db.wallet.zip.path">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n" +
-				`  <entry key="db.tnsDirectory">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n" +
-				defDBWalletZip +
-				// Disabled (but not forgotten)
-				// conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIAulocation) +
-				// conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIEnabled) +
-				// conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIJvmlocation) +
-				// conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPILoglocation) +
-				`</properties>`),
-		}
-	}
+/*
+************************************************
+  - Definers
 
-	objectMeta := objectMetaDefine(ords, configMapName)
-	def := &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: objectMeta,
-		Data:       defData,
-	}
-
-	// Set the ownerRef
-	if err := ctrl.SetControllerReference(ords, def, r.Scheme); err != nil {
-		return nil
-	}
-	return def
-}
-
+*************************************************
+*/
 func objectMetaDefine(ords *databasev1.RestDataServices, name string) metav1.ObjectMeta {
 	labels := getLabels(ords.Name)
 	return metav1.ObjectMeta{
@@ -518,11 +386,10 @@ func selectorDefine(ords *databasev1.RestDataServices) metav1.LabelSelector {
 func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplateSpec {
 	labels := getLabels(ords.Name)
 	specVolumes, specVolumeMounts := VolumesDefine(ords)
-	port := int32(8080)
-	if ords.Spec.GlobalSettings.StandaloneHTTPPort != nil {
-		port = *ords.Spec.GlobalSettings.StandaloneHTTPPort
-	}
+	HTTPport := *ords.Spec.GlobalSettings.StandaloneHTTPPort
+	HTTPSport := *ords.Spec.GlobalSettings.StandaloneHTTPSPort
 
+	// Environment From Source
 	podSpecTemplate :=
 		corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -537,32 +404,33 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 						Type: corev1.SeccompProfileTypeRuntimeDefault,
 					},
 				},
+				InitContainers: []corev1.Container{{
+					Image:           ords.Spec.Image,
+					Name:            ords.Name + "-init",
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					SecurityContext: securityContextDefine(),
+					Command:         []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
+					Env:             envDefine(ords, true),
+					VolumeMounts:    specVolumeMounts,
+				}},
 				Containers: []corev1.Container{{
 					Image:           ords.Spec.Image,
 					Name:            ords.Name,
 					ImagePullPolicy: corev1.PullIfNotPresent,
-					SecurityContext: &corev1.SecurityContext{
-						RunAsNonRoot:             &[]bool{true}[0],
-						RunAsUser:                &[]int64{54321}[0],
-						AllowPrivilegeEscalation: &[]bool{false}[0],
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{
-								"ALL",
-							},
-						},
-					},
-					Ports: []corev1.ContainerPort{{
-						ContainerPort: port,
-						Name:          targetPortName,
-					}},
-					Command: []string{"sh", "-c", "tail -f /dev/null"},
-					//Command: []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
-					Env: []corev1.EnvVar{
+					SecurityContext: securityContextDefine(),
+					Ports: []corev1.ContainerPort{
 						{
-							Name:  "ORDS_CONFIG",
-							Value: ordsSABase + "/config",
+							ContainerPort: HTTPport,
+							Name:          targetHTTPPortName,
+						},
+						{
+							ContainerPort: HTTPSport,
+							Name:          targetHTTPSPortName,
 						},
 					},
+					//Command: []string{"sh", "-c", "tail -f /dev/null"},
+					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
+					Env:          envDefine(ords, false),
 					VolumeMounts: specVolumeMounts,
 				}}},
 		}
@@ -575,11 +443,17 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	var volumes []corev1.Volume
 	var volumeMounts []corev1.VolumeMount
 
+	// SecretHelper
+	secretHelperVolume := volumeBuild(ords.Name+"-"+"init-script", "ConfigMap", 0770)
+	volumes = append(volumes, secretHelperVolume)
+	secretHelperVolumeMount := volumeMountBuild(ords.Name+"-"+"init-script", ordsSABase+"/bin", false)
+	volumeMounts = append(volumeMounts, secretHelperVolumeMount)
+
 	// Build volume specifications for globalSettings
 	standaloneVolume := volumeBuild("standalone", "EmptyDir")
 	globalWalletVolume := volumeBuild("sa-wallet-global", "EmptyDir")
 	globalLogVolume := volumeBuild("sa-log-global", "EmptyDir")
-	globalConfigVolume := volumeBuild(globalConfigMapName, "ConfigMap")
+	globalConfigVolume := volumeBuild(ords.Name+"-"+globalConfigMapName, "ConfigMap")
 	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume)
 	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolume := volumeBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, "Secret")
@@ -589,7 +463,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	standaloneVolumeMount := volumeMountBuild("standalone", ordsSABase+"/config/global/standalone/", false)
 	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsSABase+"/config/global/wallet/", false)
 	globalLogVolumeMount := volumeMountBuild("sa-log-global", ordsSABase+"/log/global/", false)
-	globalConfigVolumeMount := volumeMountBuild(globalConfigMapName, ordsSABase+"/config/global/", false)
+	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", false)
 	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount)
 	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", false)
@@ -599,7 +473,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	// Build volume specifications for each pool in poolSettings
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
 		poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
-		poolConfigName := poolConfigPreName + poolName
+		poolConfigName := ords.Name + "-" + poolConfigPreName + poolName
 		poolWalletName := "sa-wallet-" + poolName
 		// Volumes
 		poolWalletVolume := volumeBuild(poolWalletName, "EmptyDir")
@@ -614,7 +488,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 			volumes = append(volumes, poolTNSAdminVolume)
 		}
 
-		// VolumeMounts
+		// The folder named databases/<pool-name>/wallet/ contains an Oracle auto login wallet that contains the credentials for the database pool
 		poolWalletVolumeMount := volumeMountBuild(poolWalletName, ordsSABase+"/config/databases/"+poolName+"/wallet/", false)
 		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", false)
 		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
@@ -638,13 +512,18 @@ func volumeMountBuild(name string, path string, readOnly bool) corev1.VolumeMoun
 	}
 }
 
-func volumeBuild(name string, source string) corev1.Volume {
+func volumeBuild(name string, source string, mode ...int32) corev1.Volume {
+	defaultMode := int32(0660)
+	if len(mode) > 0 {
+		defaultMode = mode[0]
+	}
 	switch source {
 	case "ConfigMap":
 		return corev1.Volume{
 			Name: name,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
+					DefaultMode: &defaultMode,
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: name,
 					},
@@ -673,7 +552,7 @@ func volumeBuild(name string, source string) corev1.Volume {
 }
 
 // Service
-func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *databasev1.RestDataServices, port int32) *corev1.Service {
+func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *databasev1.RestDataServices, HTTPport int32, HTTPSport int32) *corev1.Service {
 	labels := getLabels(ords.Name)
 
 	objectMeta := objectMetaDefine(ords, ords.Name)
@@ -683,10 +562,16 @@ func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *da
 			Selector: labels,
 			Ports: []corev1.ServicePort{
 				{
-					Name:       servicePortName,
+					Name:       serviceHTTPPortName,
 					Protocol:   corev1.ProtocolTCP,
-					Port:       port,
-					TargetPort: intstr.FromString(targetPortName),
+					Port:       HTTPport,
+					TargetPort: intstr.FromString(targetHTTPPortName),
+				},
+				{
+					Name:       serviceHTTPSPortName,
+					Protocol:   corev1.ProtocolTCP,
+					Port:       HTTPSport,
+					TargetPort: intstr.FromString(targetHTTPSPortName),
 				},
 			},
 		},
@@ -697,6 +582,86 @@ func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *da
 		return nil
 	}
 	return def
+}
+
+func securityContextDefine() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		RunAsNonRoot:             &[]bool{true}[0],
+		RunAsUser:                &[]int64{54321}[0],
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+	}
+}
+
+func envDefine(ords *databasev1.RestDataServices, initContainer bool) []corev1.EnvVar {
+	envVarSecrets := []corev1.EnvVar{
+		{
+			Name:  "ORDS_CONFIG",
+			Value: ordsSABase + "/config",
+		},
+	}
+	if initContainer {
+		for i := 0; i < len(ords.Spec.PoolSettings); i++ {
+			poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
+			dbSecret := corev1.EnvVar{
+				Name: poolName + "_dbsecret",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: ords.Spec.PoolSettings[i].DBSecret.SecretName,
+						},
+						Key: ords.Spec.PoolSettings[i].DBSecret.PasswordKey,
+					},
+				},
+			}
+			tnsAdmin := corev1.EnvVar{
+				Name:  "TNS_ADMIN",
+				Value: ordsSABase + "/config/databases/" + poolName + "/network/admin/",
+			}
+			envVarSecrets = append(envVarSecrets, dbSecret, tnsAdmin)
+			if ords.Spec.PoolSettings[i].DBAdminUserSecret.SecretName != "" {
+				autoUpgradeORDSEnv := corev1.EnvVar{
+					Name:  poolName + "_autoupgrade_ords",
+					Value: strconv.FormatBool(ords.Spec.PoolSettings[i].AutoUpgradeORDS),
+				}
+				autoUpgradeAPEXEnv := corev1.EnvVar{
+					Name:  poolName + "_autoupgrade_apex",
+					Value: strconv.FormatBool(ords.Spec.PoolSettings[i].AutoUpgradeAPEX),
+				}
+				dbAdminUserSecret := corev1.EnvVar{
+					Name: poolName + "_dbadminusersecret",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: ords.Spec.PoolSettings[i].DBAdminUserSecret.SecretName,
+							},
+							Key: ords.Spec.PoolSettings[i].DBAdminUserSecret.PasswordKey,
+						},
+					},
+				}
+				envVarSecrets = append(envVarSecrets, dbAdminUserSecret, autoUpgradeORDSEnv, autoUpgradeAPEXEnv)
+			}
+			if ords.Spec.PoolSettings[i].DBCDBAdminUserSecret.SecretName != "" {
+				dbCDBAdminUserSecret := corev1.EnvVar{
+					Name: poolName + "_dbcdbadminusersecret",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: ords.Spec.PoolSettings[i].DBCDBAdminUserSecret.SecretName,
+							},
+							Key: ords.Spec.PoolSettings[i].DBCDBAdminUserSecret.PasswordKey,
+						},
+					},
+				}
+				envVarSecrets = append(envVarSecrets, dbCDBAdminUserSecret)
+			}
+		}
+	}
+	return envVarSecrets
 }
 
 /*************************************************
@@ -712,14 +677,14 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
 	}
 
 	for _, configMap := range configMapList.Items {
-		if configMap.Name == globalConfigMapName {
+		if configMap.Name == ords.Name+"-"+globalConfigMapName || configMap.Name == ords.Name+"-init-script" {
 			continue
 		}
 		if _, exists := definedPools[configMap.Name]; !exists {
 			if err := r.Delete(ctx, &configMap); err != nil {
 				return err
 			}
-			restartPods = ords.Spec.AutoRestart
+			restartPods = ords.Spec.ForceRestart
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "ConfigMap %s Deleted", configMap.Name)
 		}
 	}
@@ -809,32 +774,6 @@ func getLabels(name string) map[string]string {
 		"app.kubernetes.io/instance": name,
 		controllerLabelKey:           controllerLabelVal,
 	}
-}
-
-func conditionalEntry(key string, value interface{}) string {
-	switch v := value.(type) {
-	case nil:
-		return ""
-	case string:
-		if v != "" {
-			return fmt.Sprintf(`  <entry key="%s">%s</entry>`+"\n", key, v)
-		}
-	case *int32:
-		if v != nil {
-			return fmt.Sprintf(`  <entry key="%s">%d</entry>`+"\n", key, *v)
-		}
-	case *bool:
-		if v != nil {
-			return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, *v)
-		}
-	case *time.Duration:
-		if v != nil {
-			return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, *v)
-		}
-	default:
-		return fmt.Sprintf(`  <entry key="%s">%v</entry>`+"\n", key, v)
-	}
-	return ""
 }
 
 func generateSpecHash(spec interface{}) string {
