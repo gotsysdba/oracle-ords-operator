@@ -56,7 +56,7 @@ type RestDataServicesSpec struct {
 	Replicas int32 `json:"replicas,omitempty"`
 	// Specifies whether to restart pods when Global or Pool configurations change
 	ForceRestart     bool              `json:"forceRestart,omitempty"`
-	Image            string            `json:"image" protobuf:"bytes,2,opt,name=image"`
+	Image            string            `json:"image"`
 	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
@@ -64,11 +64,6 @@ type RestDataServicesSpec struct {
 	// Contains settings for individual pools/databases
 	PoolSettings []*PoolSettings `json:"poolSettings,omitempty"`
 	// +k8s:openapi-gen=true
-}
-
-// RestDataServicesStatus defines the observed state of RestDataServices
-type RestDataServicesStatus struct {
-	Image string `json:"image,omitempty"`
 }
 
 type GlobalSettings struct {
@@ -307,27 +302,27 @@ type PoolSettings struct {
 	DBSecret PasswordSecret `json:"db.secret"`
 
 	// Specifies the username for the database account that ORDS uses for administration operations in the database.
-	//+kubebuilder:default:="SYS AS SYSDBA"
+	//+kubebuilder:default:="SYS"
 	DBAdminUser string `json:"db.adminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for administration operations in the database.
 	// Replaced by: DBAdminUserSecret PasswordSecret `json:"dbAdminUserSecret,omitempty"`
 	// DBAdminUserPassword struct{} `json:"db.adminUser.password,omitempty"`
 
-	// Specifies the Secret with the dbAdminUser (SYS AS SYSDBA) and dbAdminPassword values
+	// Specifies the Secret with the dbAdminUser (SYS) and dbAdminPassword values
 	// for the database account that ORDS uses for administration operations in the database.
 	// replaces: db.adminUser.password
 	DBAdminUserSecret PasswordSecret `json:"db.adminUser.secret,omitempty"`
 
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	//+kubebuilder:default:="SYS AS SYSDBA"
+	//+kubebuilder:default:=""
 	DBCDBAdminUser string `json:"db.cdb.adminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
 	// Replaced by: DBCdbAdminUserSecret PasswordSecret `json:"dbCdbAdminUserSecret,omitempty"`
 	// DBCdbAdminUserPassword struct{} `json:"db.cdb.adminUser.password,omitempty"`
 
-	// Specifies the Secret with the dbCdbAdminUser (SYS AS SYSDBA) and dbCdbAdminPassword values
+	// Specifies the Secret with the dbCdbAdminUser (SYS) and dbCdbAdminPassword values
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
 	// Replaces: db.cdb.adminUser.password
 	DBCDBAdminUserSecret PasswordSecret `json:"db.cdb.adminUser.secret,omitempty"`
@@ -610,8 +605,26 @@ type DBWalletSecret struct {
 	WalletName string `json:"walletName"`
 }
 
+// RestDataServicesStatus defines the observed state of RestDataServices
+type RestDataServicesStatus struct {
+	WorkloadType    string `json:"workloadType,omitempty"`
+	ORDSVersion     string `json:"ordsVersion,omitempty"`
+	HTTPPort        *int32 `json:"httpPort,omitempty"`
+	HTTPSPort       *int32 `json:"httpsPort,omitempty"`
+	RestartRequired bool   `json:"restartRequired"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:JSONPath=".status.workloadType",name="workloadType",type="string"
+//+kubebuilder:printcolumn:JSONPath=".status.ordsVersion",name="ordsVersion",type="string"
+//+kubebuilder:printcolumn:JSONPath=".status.httpPort",name="httpPort",type="integer"
+//+kubebuilder:printcolumn:JSONPath=".status.httpsPort",name="httpsPort",type="integer"
+//+kubebuilder:printcolumn:JSONPath=".status.restartRequired",name="restartRequired",type="boolean"
+//+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="AGE",type="date"
 
 // RestDataServices is the Schema for the restdataservices API
 type RestDataServices struct {

@@ -1,15 +1,15 @@
 apiVersion: database.oracle.com/v1alpha1
 kind: SingleInstanceDatabase
 metadata:
-  name: ordspoc-sidb
+    name: ordspoc-sidb
 spec:
-  replicas: 1
-  image:
-      pullFrom: container-registry.oracle.com/database/free:23.3.0.0
-      prebuiltDB: true
-  sid: FREE
-  edition: free
-  adminPassword:
-      secretName: db-auth
-      secretKey: password
-  pdbName: FREEPDB1
+    replicas: 1
+    image:
+        pullFrom: container-registry.oracle.com/database/free:23.3.0.0
+        prebuiltDB: true
+    sid: FREE
+    edition: free
+    adminPassword:
+        secretName: db-auth
+        secretKey: password
+    pdbName: FREEPDB1

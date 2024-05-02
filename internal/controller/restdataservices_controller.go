@@ -53,6 +53,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -79,8 +80,18 @@ const (
 	specHashLabel        = "oracle.com/ords-operator-spec-hash"
 )
 
+// Definitions to manage status conditions
+const (
+	// typeAvailableORDS represents the status of the Workload reconciliation
+	typeAvailableORDS = "Available"
+	// typeUnsyncedORDS represents the status used when the configuration has changed but the Workload has not been restarted.
+	typeUnsyncedORDS = "Unsynced"
+	// typeAvailableORDS represents the status used when the custom resource is deleted and the finalizer operations must to occur.
+	typeDegradedORDS = "Degraded"
+)
+
 // Trigger a restart of Pods on Config Changes
-var restartPods bool = false
+var RestartPods bool = false
 
 // RestDataServicesReconciler reconciles a RestDataServices object
 type RestDataServicesReconciler struct {
@@ -133,6 +144,14 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, err
 	}
 
+	// Set the status as Unknown when no status are available
+	if ords.Status.Conditions == nil || len(ords.Status.Conditions) == 0 {
+		condition := metav1.Condition{Type: typeUnsyncedORDS, Status: metav1.ConditionUnknown, Reason: "Reconciling", Message: "Starting reconciliation"}
+		if err := r.SetStatus(ctx, req, ords, condition); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// ConfigMap - Init Script
 	if err := r.ConfigMapReconcile(ctx, ords, ords.Name+"-"+"init-script", 0); err != nil {
 		logr.Error(err, "Error in ConfigMapReconcile (init-script)")
@@ -160,8 +179,16 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Set the Type as Unsynced when a pod restart is required
+	if RestartPods {
+		condition := metav1.Condition{Type: typeUnsyncedORDS, Status: metav1.ConditionTrue, Reason: "Unsynced", Message: "Configurations have changed"}
+		if err := r.SetStatus(ctx, req, ords, condition); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Workloads
-	if err := r.WorkloadReconcile(ctx, ords, ords.Spec.WorkloadType); err != nil {
+	if err := r.WorkloadReconcile(ctx, req, ords, ords.Spec.WorkloadType); err != nil {
 		logr.Error(err, "Error in WorkloadReconcile")
 		return ctrl.Result{}, err
 	}
@@ -176,7 +203,45 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Set the Type as Available when a pod restart is not required
+	if !RestartPods {
+		condition := metav1.Condition{Type: typeAvailableORDS, Status: metav1.ConditionTrue, Reason: "Available", Message: "Workload in Sync"}
+		if err := r.SetStatus(ctx, req, ords, condition); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
+}
+
+/************************************************
+ * Status
+ *************************************************/
+func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, statusCondition metav1.Condition) error {
+	logr := log.FromContext(ctx).WithName("SetStatus")
+
+	// Fetch before Status Update
+	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
+		logr.Error(err, "Failed to re-fetch ORDS")
+		return err
+	}
+	meta.SetStatusCondition(&ords.Status.Conditions, statusCondition)
+	ords.Status.WorkloadType = ords.Spec.WorkloadType
+	ords.Status.ORDSVersion = strings.Split(ords.Spec.Image, ":")[1]
+	ords.Status.HTTPPort = ords.Spec.GlobalSettings.StandaloneHTTPPort
+	ords.Status.HTTPSPort = ords.Spec.GlobalSettings.StandaloneHTTPSPort
+	ords.Status.RestartRequired = RestartPods
+	if err := r.Status().Update(ctx, ords); err != nil {
+		logr.Error(err, "Failed to update ORDS")
+		return err
+	}
+	logr.Info("Status Sync'd; Restart Required: " + strconv.FormatBool(RestartPods))
+	// Re-Fetch after Status Update
+	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
+		logr.Error(err, "Failed to re-fetch ORDS")
+		return err
+	}
+	return nil
 }
 
 /************************************************
@@ -194,7 +259,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 				return err
 			}
 			logr.Info("Created: " + configMapName)
-			restartPods = ords.Spec.ForceRestart
+			RestartPods = true
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "ConfigMap %s Created", configMapName)
 			// Requery for comparison
 			r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: ords.Namespace}, definedConfigMap)
@@ -207,7 +272,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 			return err
 		}
 		logr.Info("Updated: " + configMapName)
-		restartPods = ords.Spec.ForceRestart
+		RestartPods = true
 		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "ConfigMap %s Updated", configMapName)
 	}
 
@@ -217,7 +282,7 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 /************************************************
  * Workloads
  *************************************************/
-func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords *databasev1.RestDataServices, kind string) (err error) {
+func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req ctrl.Request, ords *databasev1.RestDataServices, kind string) (err error) {
 	logr := log.FromContext(ctx).WithName("WorkloadReconcile")
 	objectMeta := objectMetaDefine(ords, ords.Name)
 	selector := selectorDefine(ords)
@@ -270,10 +335,19 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 	if err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedWorkload); err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := r.Create(ctx, desiredWorkload); err != nil {
+				condition := metav1.Condition{
+					Type:    typeAvailableORDS,
+					Status:  metav1.ConditionFalse,
+					Reason:  "Reconciling",
+					Message: fmt.Sprintf("Failed to create %s for the custom resource (%s): (%s)", kind, ords.Name, err),
+				}
+				if statusErr := r.SetStatus(ctx, req, ords, condition); statusErr != nil {
+					return statusErr
+				}
 				return err
 			}
-			logr.Info(fmt.Sprintf("Created: %s", kind))
-			restartPods = false
+			logr.Info("Created: " + kind)
+			RestartPods = false
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "Created %s", kind)
 			// Requery for comparison
 			r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedWorkload)
@@ -293,13 +367,16 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 	}
 
 	if desiredSpecHash != definedSpecHash {
+		logr.Info("Syncing Workload " + kind + "with new configuration")
 		if err := r.Client.Update(ctx, desiredWorkload); err != nil {
 			return err
 		}
+		RestartPods = true
 		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Updated %s", kind)
 	}
-	if restartPods {
-		logr.Info(fmt.Sprintf("Cycling: %s", kind))
+
+	if RestartPods && ords.Spec.ForceRestart {
+		logr.Info("Cycling: " + kind)
 		labelsField := reflect.ValueOf(desiredWorkload).Elem().FieldByName("Spec").FieldByName("Template").FieldByName("ObjectMeta").FieldByName("Labels")
 		if labelsField.IsValid() {
 			labels := labelsField.Interface().(map[string]string)
@@ -309,7 +386,7 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, ords
 				return err
 			}
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Restart", "Restarted %s", kind)
-			restartPods = false
+			RestartPods = false
 		}
 	}
 	return nil
@@ -684,10 +761,11 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
 			if err := r.Delete(ctx, &configMap); err != nil {
 				return err
 			}
-			restartPods = ords.Spec.ForceRestart
+			RestartPods = ords.Spec.ForceRestart
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Delete", "ConfigMap %s Deleted", configMap.Name)
 		}
 	}
+
 	return nil
 }
 

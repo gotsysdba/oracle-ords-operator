@@ -37,9 +37,10 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     DB_PWD=$(echo "ORDSPOC_$(date +%H%S%M)")
 
     kubectl create secret generic db-auth \
-        --from-literal=password=${DB_PWD}
+      --from-literal=password=${DB_PWD}
     ```
-1. Create a manifest for the containerised Oracle Database.  
+1. Create a manifest for the containerised Oracle Database.
+
     The POC uses an Oracle Free Image, but other versions may be subsituted; review the OraOperator Documentation for details on the manifests.
 
     ```bash
@@ -51,13 +52,13 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     spec:
       replicas: 1
       image:
-          pullFrom: container-registry.oracle.com/database/free:23.3.0.0
-          prebuiltDB: true
+        pullFrom: container-registry.oracle.com/database/free:23.3.0.0
+        prebuiltDB: true
       sid: FREE
       edition: free
       adminPassword:
-          secretName: db-auth
-          secretKey: password
+        secretName: db-auth
+        secretKey: password
       pdbName: FREEPDB1
     EOF
     ```
@@ -73,7 +74,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     kubectl get singleinstancedatabases/ordspoc-sidb -w
     ```
 
-    **NOTE**: If this is the first time pulling the free database image, it may take some time for the database to become available.
+    **NOTE**: If this is the first time pulling the free database image, it may take up to 15 minutes for the database to become available.
 
 ### Create RestDataServices Resource
 
@@ -81,7 +82,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
 
     ```bash
     CONN_STRING=$(kubectl get singleinstancedatabase ordspoc-sidb \
-        -o jsonpath='{.status.pdbConnectString}')
+      -o jsonpath='{.status.pdbConnectString}')
 
     echo $CONN_STRING
     ```
@@ -89,9 +90,10 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
 1. Create a manifest for ORDS.
 
     As the DB in the Free image does not contain ORDS, the following additional keys are specified for the pool:
-    * `db.adminUser` - User with privileges to install, upgrade or uninstall ORDS in the database (SYS AS SYDBA).
+    * `db.adminUser` - User with privileges to install, upgrade or uninstall ORDS in the database (SYS).
     * `db.adminUser.secret` - Secret containing the password for `db.adminUser` (created in the first step)
-    * `autoUpgrade` - Boolean; when true the ORDS schema will be installed/upgraded
+    * `autoUpgradeORDS` - Boolean; when true the ORDS will be installed/upgraded in the database
+    * `autoUpgradeAPEX` - Boolean; when true the APEX will be installed/upgraded in the database
 
     The `db.username` will be used as the ORDS schema in the database during the install/upgrade process (ORDS_PUBLIC_USER).
 
@@ -123,6 +125,8 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
             passwordKey: password
     EOF
     ```
+    **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.
+
 
 1. Apply the Container Oracle Database manifest:
     ```bash
