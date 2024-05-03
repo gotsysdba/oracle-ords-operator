@@ -48,25 +48,30 @@ import (
 // RestDataServicesSpec defines the desired state of RestDataServices
 // +kubebuilder:resource:shortName="ords"
 type RestDataServicesSpec struct {
-	// +kubebuilder:validation:Enum=Deployment;StatefulSet;DaemonSet
+	// Specifies the desired Kubernetes Workload
+	//+kubebuilder:validation:Enum=Deployment;StatefulSet;DaemonSet
+	//+kubebuilder:default=Deployment
 	WorkloadType string `json:"workloadType,omitempty"`
-	// +kubebuilder:validation:Minimum=1
+	// Defines the number of desired Replicas when workloadType is Deployment or StatefulSet
+	//+kubebuilder:validation:Minimum=1
+	//+kubebuilder:default=1
 	Replicas int32 `json:"replicas,omitempty"`
 	// Specifies whether to restart pods when Global or Pool configurations change
-	AutoRestart      bool              `json:"autoRestart,omitempty"`
-	Image            string            `json:"image" protobuf:"bytes,2,opt,name=image"`
-	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
+	ForceRestart bool `json:"forceRestart,omitempty"`
+	// Specifies the ORDS container image
+	//+kubecbuilder:default=container-registry.oracle.com/database/ords:latest
+	Image string `json:"image"`
+	// Specifies the ORDS container image pull policy
+	//+kubebuilder:validation:Enum=IfNotPresent;Always;Never
+	//+kubebuilder:default=IfNotPresent
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Specifies the Secret Name for pulling the ORDS container image
+	ImagePullSecrets string `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
 	GlobalSettings GlobalSettings `json:"globalSettings"`
 	// Contains settings for individual pools/databases
 	PoolSettings []*PoolSettings `json:"poolSettings,omitempty"`
 	// +k8s:openapi-gen=true
-}
-
-// RestDataServicesStatus defines the observed state of RestDataServices
-type RestDataServicesStatus struct {
-	Image string `json:"image,omitempty"`
 }
 
 type GlobalSettings struct {
@@ -75,7 +80,7 @@ type GlobalSettings struct {
 	CacheMetadataGraphQLExpireAfterAccess *time.Duration `json:"cache.metadata.graphql.expireAfterAccess,omitempty"`
 
 	// Specifies the setting to enable or disable JWKS caching.
-	// +kubebuilder:default:=true
+	//+kubebuilder:default:=true
 	CacheMetadataJWKSEnabled *bool `json:"cache.metadata.jwks.enabled,omitempty"`
 
 	// Specifies the initial capacity of the JWKS cache.
@@ -101,7 +106,7 @@ type GlobalSettings struct {
 	DBInvalidPoolTimeout *time.Duration `json:"db.invalidPoolTimeout,omitempty"`
 
 	// Specifies the maximum join nesting depth limit for GraphQL queries.
-	// +kubebuilder:default:=5
+	//+kubebuilder:default:=5
 	FeatureGraphQLMaxNestingDepth *int32 `json:"feature.grahpql.max.nesting.depth,omitempty"`
 
 	// Specifies the name of the HTTP request header that uniquely identifies the request end to end as
@@ -111,28 +116,23 @@ type GlobalSettings struct {
 
 	// Specifies the maximum number of unsuccessful password attempts allowed.
 	// Enabled by setting a positive integer value.
-	// +kubebuilder:default:=-1
+	//+kubebuilder:default:=-1
 	SecurityCredentialsAttempts *int32 `json:"security.credentials.attempts,omitempty"`
 
 	// Specifies the period to lock the account that has exceeded maximum attempts.
 	// Default: 10m
 	SecurityCredentialsLockTime *time.Duration `json:"security.credentials.lock.time,omitempty"`
 
-	// Specifies the comma separated list of host names or IP addresses to identify a specific network
-	// interface on which to listen.
-	// +kubebuilder:default:="0.0.0.0"
-	StandaloneBinds string `json:"standalone.binds,omitempty"`
-
 	// Specifies the HTTP listen port.
-	/// +kubebuilder:default:=8080
-	StandaloneHTTPPort *int32 `json:"standalone.http.port,omitempty" protobuf:"varint,3,opt,name=standalonehttpport"`
+	//+kubebuilder:default:=8080
+	StandaloneHTTPPort *int32 `json:"standalone.http.port,omitempty"`
 
 	// Specifies the SSL certificate hostname.
-	StandaloneHttpsHost string `json:"standalone.https.host,omitempty"`
+	StandaloneHTTPSHost string `json:"standalone.https.host,omitempty"`
 
 	// Specifies the HTTPS listen port.
-	// +kubebuilder:default:=8443
-	StandaloneHttpsPort *int32 `json:"standalone.https.port,omitempty"`
+	//+kubebuilder:default:=8443
+	StandaloneHTTPSPort *int32 `json:"standalone.https.port,omitempty"`
 
 	// Specifies the period for Standalone Mode to wait until it is gracefully shutdown.
 	// Default: 10s
@@ -144,22 +144,22 @@ type GlobalSettings struct {
 	CacheMetadataTimeout *time.Duration `json:"cache.metadata.timeout,omitempty"`
 
 	// Specifies the setting to enable or disable metadata caching.
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	CacheMetadataEnabled *bool `json:"cache.metadata.enabled,omitempty"`
 
 	// Specifies whether the Database API is enabled.
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	DatabaseAPIEnabled *bool `json:"database.api.enabled,omitempty"`
 
 	// Specifies whether to display error messages on the browser.
-	// +kubebuilder:default=false
+	//+kubebuilder:default=false
 	DebugPrintDebugToScreen *bool `json:"debug.printDebugToScreen,omitempty"`
 
 	// Specifies how the HTTP error responses must be formatted.
 	// html - Force all responses to be in HTML format
 	// json - Force all responses to be in JSON format
 	// auto - Automatically determines most appropriate format for the request (default).
-	// +kubebuilder:default:="auto"
+	//+kubebuilder:default:="auto"
 	ErrorResponseFormat string `json:"error.responseFormat,omitempty"`
 
 	// Specifies the Internet Content Adaptation Protocol (ICAP) port to virus scan files.
@@ -176,12 +176,12 @@ type GlobalSettings struct {
 	ICAPServer string `json:"icap.server,omitempty"`
 
 	// Specifies whether procedures are to be logged.
-	// +kubebuilder:default:=false
+	//+kubebuilder:default:=false
 	LogProcedure *bool `json:"log.procedure,omitempty"`
 
 	// If this value is set to true, then the Oracle REST Data Services internal exclusion list is not enforced.
 	// Oracle recommends that you do not set this value to true.
-	// +kubebuilder:default:=false
+	//+kubebuilder:default:=false
 	SecurityDisableDefaultExclusionList *bool `json:"security.disableDefaultExclusionList,omitempty"`
 
 	// Specifies a pattern for procedures, packages, or schema names which are forbidden to be directly executed from a browser.
@@ -192,20 +192,32 @@ type GlobalSettings struct {
 
 	// Specifies the maximum number of cached procedure validations.
 	// Set this value to 0 to force the validation procedure to be invoked on each request.
-	// +kubebuilder:default:=2000
+	//+kubebuilder:default:=2000
 	SecurityMaxEntries *int32 `json:"security.maxEntries,omitempty"`
 
 	// Specifies whether HTTPS is available in your environment.
-	// +kubebuilder:default:=true
+	//+kubebuilder:default:=true
 	SecurityVerifySSL *bool `json:"security.verifySSL,omitempty"`
 
 	// Specifies the context path where ords is located.
-	// +kubebuilder:default:="/ords"
+	//+kubebuilder:default:="/ords"
 	StandaloneContextPath string `json:"standalone.context.path,omitempty"`
 
-	// Specifies the Context path where APEX static resources are located.
-	// +kubebuilder:default:="/i"
-	StandaloneStaticContextPath string `json:"standalone.static.context.path,omitempty"`
+	/*************************************************
+	* Undocumented
+	/************************************************/
+
+	// Specifies that the HTTP Header contains the specified text
+	// Usually set to 'X-Forwarded-Proto: https' coming from a load-balancer
+	SecurityHTTPSHeaderCheck string `json:"security.httpsHeaderCheck,omitempty"`
+
+	// Specifies to force HTTPS; this is set to default to false as in real-world TLS should
+	// terminiate at the LoadBalancer
+	//+kubebuilder:default:=false
+	SecurityForceHTTPS bool `json:"security.forceHTTPS,omitempty"`
+
+	// Specifies to trust Access from originating domains
+	SecuirtyExternalSessionTrustedOrigins string `json:"security.externalSessionTrustedOrigins,omitempty"`
 
 	/*************************************************
 	* Customised
@@ -221,7 +233,7 @@ type GlobalSettings struct {
 
 	// Specifies if HTTP request access logs should be enabled
 	// If enabled, logs will be written to /opt/oracle/sa/log/global
-	// +kubebuilder:default:=false
+	//+kubebuilder:default:=false
 	EnableStandaloneAccessLog bool `json:"enable.standalone.access.log,omitempty"`
 
 	/*
@@ -243,9 +255,11 @@ type GlobalSettings struct {
 	/*************************************************
 	* Disabled
 	/*************************************************
-	// Specifies the path to the folder containing static resources required by APEX.
-	// StandaloneStaticPath string `json:"standalone.static.path,omitempty"`
-	// This is disable as will use the container image path (/opt/oracle/apex/$ORDS_VER/images)
+	// Specifies the comma separated list of host names or IP addresses to identify a specific network
+	// interface on which to listen.
+	//+kubebuilder:default:="0.0.0.0"
+	//StandaloneBinds string `json:"standalone.binds,omitempty"`
+	// This is disabled as containerised
 
 	// Specifies the file where credentials are stored.
 	//SecurityCredentialsFile string `json:"security.credentials.file,omitempty"`
@@ -258,16 +272,32 @@ type GlobalSettings struct {
 	// Specifies the path to a folder that contains the custom error page.
 	// ErrorExternalPath string `json:"error.externalPath,omitempty"`
 	// Can see use-case; but wait for implementation
+
+	// Specifies the Context path where APEX static resources are located.
+	//+kubebuilder:default:="/i"
+	// StandaloneStaticContextPath string `json:"standalone.static.context.path,omitempty"`
+	// Does anyone ever change this?  If so, need to also change the APEX install configmap to update path
 	*/
+
+	// Specifies the path to the folder containing static resources required by APEX.
+	// StandaloneStaticPath string `json:"standalone.static.path,omitempty"`
+	// This is disabled as will use the container image path (/opt/oracle/apex/$ORDS_VER/images)
+	// HARDCODED into the entrypoint
 }
 
 type PoolSettings struct {
 	// Specifies the Pool Name
 	PoolName string `json:"poolName"`
 
-	// Specifies to automatically restart the pods when configuration changes are made
+	// Specify whether to perform ORDS installation/upgrades automatically
+	// The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored
 	//+kubebuilder:default:=false
-	PoolAutoRestart bool `json:"poolAutoRestart"`
+	AutoUpgradeORDS bool `json:"autoUpgradeORDS,omitempty"`
+
+	// Specify whether to perform APEX installation/upgrades automatically
+	// The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored
+	//+kubebuilder:default:=false
+	AutoUpgradeAPEX bool `json:"autoUpgradeAPEX,omitempty"`
 
 	// Specifies the name of the database user for the connection.
 	//+kubebuilder:default:="ORDS_PUBLIC_USER"
@@ -278,32 +308,34 @@ type PoolSettings struct {
 	// DBPassword struct{} `json:"dbPassword,omitempty"`
 
 	// Specifies the Secret with the dbUsername and dbPassword values
-	// for the connection.
-	DBSecret PasswordSecret `json:"dbSecret"`
+	// for the connection.  Replaces:
+	DBSecret PasswordSecret `json:"db.secret"`
 
 	// Specifies the username for the database account that ORDS uses for administration operations in the database.
-	//+kubebuilder:default:="SYS AS SYSDBA"
+	//+kubebuilder:default:="SYS"
 	DBAdminUser string `json:"db.adminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for administration operations in the database.
 	// Replaced by: DBAdminUserSecret PasswordSecret `json:"dbAdminUserSecret,omitempty"`
-	// DBAdminUserPassword struct{} `json:"dbAdminUserPassword,omitempty"`
+	// DBAdminUserPassword struct{} `json:"db.adminUser.password,omitempty"`
 
-	// Specifies the Secret with the dbAdminUser (SYS AS SYSDBA) and dbAdminPassword values
+	// Specifies the Secret with the dbAdminUser (SYS) and dbAdminPassword values
 	// for the database account that ORDS uses for administration operations in the database.
-	DBAdminUserSecret PasswordSecret `json:"dbAdminUserSecret,omitempty"`
+	// replaces: db.adminUser.password
+	DBAdminUserSecret PasswordSecret `json:"db.adminUser.secret,omitempty"`
 
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	//+kubebuilder:default:="SYS AS SYSDBA"
-	DBCDBAdminUser string `json:"db.cdb.adminUser ,omitempty"`
+	//+kubebuilder:default:=""
+	DBCDBAdminUser string `json:"db.cdb.adminUser,omitempty"`
 
 	// Specifies the password for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
 	// Replaced by: DBCdbAdminUserSecret PasswordSecret `json:"dbCdbAdminUserSecret,omitempty"`
-	// DBCdbAdminUserPassword struct{} `json:"dbCdbAdminUserPassword,omitempty"`
+	// DBCdbAdminUserPassword struct{} `json:"db.cdb.adminUser.password,omitempty"`
 
-	// Specifies the Secret with the dbCdbAdminUser (SYS AS SYSDBA) and dbCdbAdminPassword values
+	// Specifies the Secret with the dbCdbAdminUser (SYS) and dbCdbAdminPassword values
 	// Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.
-	DBCDBAdminUserSecret PasswordSecret `json:"dbCDBAdminUserSecret,omitempty"`
+	// Replaces: db.cdb.adminUser.password
+	DBCDBAdminUserSecret PasswordSecret `json:"db.cdb.adminUser.secret,omitempty"`
 
 	// Specifies the comma delimited list of additional roles to assign authenticated APEX administrator type users.
 	ApexSecurityAdministratorRoles string `json:"apex.security.administrator.roles,omitempty"`
@@ -315,8 +347,8 @@ type PoolSettings struct {
 	// Value can be one of pool or request.
 	// If the value is pool, then the credentials defined in this pool is used to create a JDBC connection.
 	// If the value request is used, then the credentials in the request is used to create a JDBC connection and if successful, grants the requestor SQL Developer role.
-	// +kubebuilder:validation:Enum=pool;request
-	// +kubebuilder:default:="pool"
+	//+kubebuilder:validation:Enum=pool;request
+	//+kubebuilder:default:="pool"
 	DBCredentialsSource string `json:"db.credentialsSource,omitempty"`
 
 	// Indicates how long to wait to gracefully destroy a pool before moving to forcefully destroy all connections including borrowed ones.
@@ -341,7 +373,7 @@ type PoolSettings struct {
 	JDBCAuthAdminRole string `json:"jdbc.auth.admin.role,omitempty"`
 
 	// Specifies how a pooled JDBC connection and corresponding database session, is released when a request has been processed.
-	// +kubebuilder:default:="RECYCLE"
+	//+kubebuilder:default:="RECYCLE"
 	JDBCCleanupMode string `json:"jdbc.cleanup.mode,omitempty"`
 
 	// If it is true, then it causes a trace of the SQL statements performed by Oracle Web Agent to be echoed to the log.
@@ -350,16 +382,16 @@ type PoolSettings struct {
 	// Indicates if the PL/SQL Gateway functionality should be available for a pool or not.
 	// Value can be one of disabled, direct, or proxied.
 	// If the value is direct, then the pool serves the PL/SQL Gateway requests directly.
-	// If the value is PLSQL_GATEWAY_CONFIG, view is used to determine the user to whom to proxy.
-	// +kubebuilder:validation:Enum=disabled;direct;proxied
+	// If the value is proxied, the PLSQL_GATEWAY_CONFIG view is used to determine the user to whom to proxy.
+	//+kubebuilder:validation:Enum=disabled;direct;proxied
 	PlsqlGatewayMode string `json:"plsql.gateway.mode,omitempty"`
 
 	// Specifies whether the JWT Profile authentication is available. Supported values:
-	// +kubebuilder:default:=true
+	//+kubebuilder:default:=true
 	SecurityJWTProfileEnabled *bool `json:"security.jwt.profile.enabled,omitempty"`
 
 	// Specifies the maximum number of bytes read from the JWK url.
-	// +kubebuilder:default:=100000
+	//+kubebuilder:default:=100000
 	SecurityJWKSSize *int32 `json:"security.jwks.size,omitempty"`
 
 	// Specifies the maximum amount of time before timing-out when accessing a JWK url.
@@ -384,12 +416,12 @@ type PoolSettings struct {
 	SecurityJWTAllowedAge *time.Duration `json:"security.jwt.allowed.age,omitempty"`
 
 	// Indicates the type of security.requestValidationFunction: javascript or plsql.
-	// +kubebuilder:validation:Enum=plsql;javascript
-	// +kubebuilder:default:="plsql"
+	//+kubebuilder:validation:Enum=plsql;javascript
+	//+kubebuilder:default:="plsql"
 	SecurityValidationFunctionType string `json:"security.validationFunctionType,omitempty"`
 
 	// The type of connection.
-	// +kubebuilder:validation:Enum=basic;tns;customurl
+	//+kubebuilder:validation:Enum=basic;tns;customurl
 	DBConnectionType string `json:"db.connectionType,omitempty"`
 
 	// Specifies the JDBC URL connection to connect to the database.
@@ -418,48 +450,48 @@ type PoolSettings struct {
 	DBWalletZipService string `json:"db.wallet.zip.service,omitempty"`
 
 	// Specifies the JDBC driver type.
-	// +kubebuilder:validation:Enum=thin;oci8
-	// +kubebuilder:default:="thin"
+	//+kubebuilder:validation:Enum=thin;oci8
+	//+kubebuilder:default:="thin"
 	JDBCDriverType string `json:"jdbc.DriverType,omitempty"`
 
 	// Specifies how long an available connection can remain idle before it is closed. The inactivity connection timeout is in seconds.
-	// +kubebuilder:default:=1800.
+	//+kubebuilder:default:=1800.
 	JDBCInactivityTimeout *int32 `json:"jdbc.InactivityTimeout,omitempty"`
 
 	// Specifies the initial size for the number of connections that will be created.
 	// The default is low, and should probably be set higher in most production environments.
-	// +kubebuilder:default:=10
+	//+kubebuilder:default:=10
 	JDBCInitialLimit *int32 `json:"jdbc.InitialLimit,omitempty"`
 
 	// Specifies the maximum number of times to reuse a connection before it is discarded and replaced with a new connection.
-	// +kubebuilder:default:=1000.
+	//+kubebuilder:default:=1000.
 	JDBCMaxConnectionReuseCount *int32 `json:"jdbc.MaxConnectionReuseCount,omitempty"`
 
 	// Specifies the maximum number of connections.
 	// Might be too low for some production environments.
-	// +kubebuilder:default:=10
+	//+kubebuilder:default:=10
 	JDBCMaxLimit *int32 `json:"jdbc.MaxLimit,omitempty"`
 
 	// Specifies if the PL/SQL Gateway calls can be authenticated using database users.
 	// If the value is true then this feature is enabled. If the value is false, then this feature is disabled.
 	// Oracle recommends not to use this feature.
 	// This feature used only to facilitate customers migrating from mod_plsql.
-	// +kubebuilder:default:=false
+	//+kubebuilder:default:=false
 	JDBCAuthEnabled *bool `json:"jdbc.auth.enabled,omitempty"`
 
 	// Specifies the maximum number of statements to cache for each connection.
-	// +kubebuilder:default:=10
+	//+kubebuilder:default:=10
 	JDBCMaxStatementsLimit *int32 `json:"jdbc.MaxStatementsLimit,omitempty"`
 
 	// Specifies the minimum number of connections.
-	// +kubebuilder:default:=2
+	//+kubebuilder:default:=2
 	JDBCMinLimit *int32 `json:"jdbc.MinLimit,omitempty"`
 
 	// Specifies a timeout period on a statement.
 	// An abnormally long running query or script, executed by a request, may leave it in a hanging state unless a timeout is
 	// set on the statement. Setting a timeout on the statement ensures that all the queries automatically timeout if
 	// they are not completed within the specified time period.
-	// +kubebuilder:default:=900
+	//+kubebuilder:default:=900
 	JDBCStatementTimeout *int32 `json:"jdbc.statementTimeout,omitempty"`
 
 	// Specifies the default page to display. The Oracle REST Data Services Landing Page.
@@ -468,7 +500,7 @@ type PoolSettings struct {
 	// Specifies the maximum number of rows that will be returned from a query when processing a RESTful service
 	// and that will be returned from a nested cursor in a result set.
 	// Affects all RESTful services generated through a SQL query, regardless of whether the resource is paginated.
-	// +kubebuilder:default:=10000
+	//+kubebuilder:default:=10000
 	MiscPaginationMaxRows *int32 `json:"misc.pagination.maxRows,omitempty"`
 
 	// Specifies the procedure name(s) to execute after executing the procedure specified on the URL.
@@ -496,16 +528,16 @@ type PoolSettings struct {
 
 	// When using the SODA REST API, specifies the default number of documents returned for a GET request on a collection when a
 	// limit is not specified in the URL. Must be a positive integer, or "unlimited" for no limit.
-	// +kubebuilder:default:="100"
+	//+kubebuilder:default:="100"
 	SODADefaultLimit string `json:"soda.defaultLimit,omitempty"`
 
 	// When using the SODA REST API, specifies the maximum number of documents that will be returned for a GET request on a collection URL,
 	// regardless of any limit specified in the URL. Must be a positive integer, or "unlimited" for no limit.
-	// +kubebuilder:default:="1000"
+	//+kubebuilder:default:="1000"
 	SODAMaxLimit string `json:"soda.maxLimit,omitempty"`
 
 	// Specifies whether the REST-Enabled SQL service is active.
-	// +kubebuilder:default:=false
+	//+kubebuilder:default:=false
 	RestEnabledSqlActive *bool `json:"restEnabledSql.active,omitempty"`
 
 	/*************************************************
@@ -560,31 +592,65 @@ type PoolSettings struct {
 
 // Defines the secret containing Password mapped to secretKey
 type PasswordSecret struct {
+	// Specifies the name of the password Secret
 	SecretName string `json:"secretName"`
-	// +kubebuilder:default:="password"
+	// Specifies the key holding the value of the Secret
+	//+kubebuilder:default:="password"
 	PasswordKey string `json:"passwordKey,omitempty"`
 }
 
 // Defines the secret containing Certificates
 type CertificateSecret struct {
-	SecretName     string `json:"secretName"`
-	Certificate    string `json:"cert"`
+	// Specifies the name of the certificate Secret
+	SecretName string `json:"secretName"`
+	// Specifies the Certificate
+	Certificate string `json:"cert"`
+	// Specifies the Certificate Key
 	CertificateKey string `json:"key"`
 }
 
 // Defines the secret containing Certificates
 type TNSAdminSecret struct {
+	// Specifies the name of the TNS_ADMIN Secret
 	SecretName string `json:"secretName"`
 }
 
 // Defines the secret containing Certificates
 type DBWalletSecret struct {
+	// Specifies the name of the Database Wallet Secret
 	SecretName string `json:"secretName"`
+	// Specifies the Secret key name containing the Wallet
 	WalletName string `json:"walletName"`
+}
+
+// RestDataServicesStatus defines the observed state of RestDataServices
+type RestDataServicesStatus struct {
+	// Indicates the current status of the resource
+	Status string `json:"status,omitempty"`
+	// Indicates the current Workload type of the resource
+	WorkloadType string `json:"workloadType,omitempty"`
+	// Indicates the ORDS version
+	ORDSVersion string `json:"ordsVersion,omitempty"`
+	// Indicates the HTTP port of the resource exposed by the pods
+	HTTPPort *int32 `json:"httpPort,omitempty"`
+	// Indicates the HTTPS port of the resource exposed by the pods
+	HTTPSPort *int32 `json:"httpsPort,omitempty"`
+	// Indicates if the resource is out-of-sync with the configuration
+	RestartRequired bool `json:"restartRequired"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:JSONPath=".status.status",name="status",type="string"
+//+kubebuilder:printcolumn:JSONPath=".status.workloadType",name="workloadType",type="string"
+//+kubebuilder:printcolumn:JSONPath=".status.ordsVersion",name="ordsVersion",type="string"
+//+kubebuilder:printcolumn:JSONPath=".status.httpPort",name="httpPort",type="integer"
+//+kubebuilder:printcolumn:JSONPath=".status.httpsPort",name="httpsPort",type="integer"
+//+kubebuilder:printcolumn:JSONPath=".status.restartRequired",name="restartRequired",type="boolean"
+//+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="AGE",type="date"
 
 // RestDataServices is the Schema for the restdataservices API
 type RestDataServices struct {

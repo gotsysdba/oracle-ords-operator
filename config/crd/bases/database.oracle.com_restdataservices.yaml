@@ -14,7 +14,29 @@ spec:
     singular: restdataservices
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - jsonPath: .status.status
+      name: status
+      type: string
+    - jsonPath: .status.workloadType
+      name: workloadType
+      type: string
+    - jsonPath: .status.ordsVersion
+      name: ordsVersion
+      type: string
+    - jsonPath: .status.httpPort
+      name: httpPort
+      type: integer
+    - jsonPath: .status.httpsPort
+      name: httpsPort
+      type: integer
+    - jsonPath: .status.restartRequired
+      name: restartRequired
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: RestDataServices is the Schema for the restdataservices API
@@ -34,7 +56,7 @@ spec:
           spec:
             description: RestDataServicesSpec defines the desired state of RestDataServices
             properties:
-              autoRestart:
+              forceRestart:
                 description: Specifies whether to restart pods when Global or Pool
                   configurations change
                 type: boolean
@@ -86,10 +108,13 @@ spec:
                       Replaces: standalone.https.cert and standalone.https.cert.key'
                     properties:
                       cert:
+                        description: Specifies the Certificate
                         type: string
                       key:
+                        description: Specifies the Certificate Key
                         type: string
                       secretName:
+                        description: Specifies the name of the certificate Secret
                         type: string
                     required:
                     - cert
@@ -183,6 +208,19 @@ spec:
                       schema names which are forbidden to be directly executed from
                       a browser.
                     type: string
+                  security.externalSessionTrustedOrigins:
+                    description: Specifies to trust Access from originating domains
+                    type: string
+                  security.forceHTTPS:
+                    default: false
+                    description: Specifies to force HTTPS; this is set to default
+                      to false as in real-world TLS should terminiate at the LoadBalancer
+                    type: boolean
+                  security.httpsHeaderCheck:
+                    description: 'Specifies that the HTTP Header contains the specified
+                      text Usually set to ''X-Forwarded-Proto: https'' coming from
+                      a load-balancer'
+                    type: string
                   security.inclusionList:
                     description: Specifies a pattern for procedures, packages, or
                       schema names which are allowed to be directly executed from
@@ -199,18 +237,13 @@ spec:
                     default: true
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
-                  standalone.binds:
-                    default: 0.0.0.0
-                    description: Specifies the comma separated list of host names
-                      or IP addresses to identify a specific network interface on
-                      which to listen.
-                    type: string
                   standalone.context.path:
                     default: /ords
                     description: Specifies the context path where ords is located.
                     type: string
                   standalone.http.port:
-                    description: Specifies the HTTP listen port. / +kubebuilder:default:=8080
+                    default: 8080
+                    description: Specifies the HTTP listen port.
                     format: int32
                     type: integer
                   standalone.https.host:
@@ -221,11 +254,6 @@ spec:
                     description: Specifies the HTTPS listen port.
                     format: int32
                     type: integer
-                  standalone.static.context.path:
-                    default: /i
-                    description: Specifies the Context path where APEX static resources
-                      are located.
-                    type: string
                   standalone.stop.timeout:
                     description: 'Specifies the period for Standalone Mode to wait
                       until it is gracefully shutdown. Default: 10s'
@@ -233,12 +261,19 @@ spec:
                     type: integer
                 type: object
               image:
+                description: Specifies the ORDS container image
                 type: string
               imagePullPolicy:
-                description: PullPolicy describes a policy for if/when to pull a container
-                  image
+                default: IfNotPresent
+                description: Specifies the ORDS container image pull policy
+                enum:
+                - IfNotPresent
+                - Always
+                - Never
                 type: string
               imagePullSecrets:
+                description: Specifies the Secret Name for pulling the ORDS container
+                  image
                 type: string
               poolSettings:
                 description: Contains settings for individual pools/databases
@@ -252,16 +287,62 @@ spec:
                       description: Specifies the comma delimited list of additional
                         roles to assign authenticated regular APEX users.
                       type: string
+                    autoUpgradeAPEX:
+                      default: false
+                      description: Specify whether to perform APEX installation/upgrades
+                        automatically The db.adminUser and db.adminUser.secret must
+                        be set, otherwise setting is ignored
+                      type: boolean
+                    autoUpgradeORDS:
+                      default: false
+                      description: Specify whether to perform ORDS installation/upgrades
+                        automatically The db.adminUser and db.adminUser.secret must
+                        be set, otherwise setting is ignored
+                      type: boolean
                     db.adminUser:
-                      default: SYS AS SYSDBA
+                      default: SYS
                       description: Specifies the username for the database account
                         that ORDS uses for administration operations in the database.
                       type: string
-                    'db.cdb.adminUser ':
-                      default: SYS AS SYSDBA
+                    db.adminUser.secret:
+                      description: 'Specifies the Secret with the dbAdminUser (SYS)
+                        and dbAdminPassword values for the database account that ORDS
+                        uses for administration operations in the database. replaces:
+                        db.adminUser.password'
+                      properties:
+                        passwordKey:
+                          default: password
+                          description: Specifies the key holding the value of the
+                            Secret
+                          type: string
+                        secretName:
+                          description: Specifies the name of the password Secret
+                          type: string
+                      required:
+                      - secretName
+                      type: object
+                    db.cdb.adminUser:
+                      default: ""
                       description: Specifies the username for the database account
                         that ORDS uses for the Pluggable Database Lifecycle Management.
                       type: string
+                    db.cdb.adminUser.secret:
+                      description: 'Specifies the Secret with the dbCdbAdminUser (SYS)
+                        and dbCdbAdminPassword values Specifies the username for the
+                        database account that ORDS uses for the Pluggable Database
+                        Lifecycle Management. Replaces: db.cdb.adminUser.password'
+                      properties:
+                        passwordKey:
+                          default: password
+                          description: Specifies the key holding the value of the
+                            Secret
+                          type: string
+                        secretName:
+                          description: Specifies the name of the password Secret
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     db.connectionType:
                       description: The type of connection.
                       enum:
@@ -299,6 +380,21 @@ spec:
                       description: Specifies the database listener port.
                       format: int32
                       type: integer
+                    db.secret:
+                      description: 'Specifies the Secret with the dbUsername and dbPassword
+                        values for the connection.  Replaces:'
+                      properties:
+                        passwordKey:
+                          default: password
+                          description: Specifies the key holding the value of the
+                            Secret
+                          type: string
+                        secretName:
+                          description: Specifies the name of the password Secret
+                          type: string
+                      required:
+                      - secretName
+                      type: object
                     db.serviceNameSuffix:
                       description: Specifies that the pool points to a CDB, and that
                         the PDBs connected to that CDB should be made addressable
@@ -323,52 +419,16 @@ spec:
                       description: Specifies the service name in the wallet archive
                         for the pool.
                       type: string
-                    dbAdminUserSecret:
-                      description: Specifies the Secret with the dbAdminUser (SYS
-                        AS SYSDBA) and dbAdminPassword values for the database account
-                        that ORDS uses for administration operations in the database.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    dbCDBAdminUserSecret:
-                      description: Specifies the Secret with the dbCdbAdminUser (SYS
-                        AS SYSDBA) and dbCdbAdminPassword values Specifies the username
-                        for the database account that ORDS uses for the Pluggable
-                        Database Lifecycle Management.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
-                    dbSecret:
-                      description: Specifies the Secret with the dbUsername and dbPassword
-                        values for the connection.
-                      properties:
-                        passwordKey:
-                          default: password
-                          type: string
-                        secretName:
-                          type: string
-                      required:
-                      - secretName
-                      type: object
                     dbWalletSecret:
                       description: 'Specifies the Secret containing the wallet archive
                         containing connection details for the pool. Replaces: db.wallet.zip'
                       properties:
                         secretName:
+                          description: Specifies the name of the Database Wallet Secret
                           type: string
                         walletName:
+                          description: Specifies the Secret key name containing the
+                            Wallet
                           type: string
                       required:
                       - secretName
@@ -485,18 +545,13 @@ spec:
                         be available for a pool or not. Value can be one of disabled,
                         direct, or proxied. If the value is direct, then the pool
                         serves the PL/SQL Gateway requests directly. If the value
-                        is PLSQL_GATEWAY_CONFIG, view is used to determine the user
-                        to whom to proxy.
+                        is proxied, the PLSQL_GATEWAY_CONFIG view is used to determine
+                        the user to whom to proxy.
                       enum:
                       - disabled
                       - direct
                       - proxied
                       type: string
-                    poolAutoRestart:
-                      default: false
-                      description: Specifies to automatically restart the pods when
-                        configuration changes are made
-                      type: boolean
                     poolName:
                       description: Specifies the Pool Name
                       type: string
@@ -605,22 +660,27 @@ spec:
                         directory Replaces: db.tnsDirectory'
                       properties:
                         secretName:
+                          description: Specifies the name of the TNS_ADMIN Secret
                           type: string
                       required:
                       - secretName
                       type: object
                   required:
+                  - db.secret
                   - db.username
-                  - dbSecret
-                  - poolAutoRestart
                   - poolName
                   type: object
                 type: array
               replicas:
+                default: 1
+                description: Defines the number of desired Replicas when workloadType
+                  is Deployment or StatefulSet
                 format: int32
                 minimum: 1
                 type: integer
               workloadType:
+                default: Deployment
+                description: Specifies the desired Kubernetes Workload
                 enum:
                 - Deployment
                 - StatefulSet
@@ -633,8 +693,98 @@ spec:
           status:
             description: RestDataServicesStatus defines the observed state of RestDataServices
             properties:
-              image:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              httpPort:
+                description: Indicates the HTTP port of the resource exposed by the
+                  pods
+                format: int32
+                type: integer
+              httpsPort:
+                description: Indicates the HTTPS port of the resource exposed by the
+                  pods
+                format: int32
+                type: integer
+              ordsVersion:
+                description: Indicates the ORDS version
                 type: string
+              restartRequired:
+                description: Indicates if the resource is out-of-sync with the configuration
+                type: boolean
+              status:
+                description: Indicates the current status of the resource
+                type: string
+              workloadType:
+                description: Indicates the current Workload type of the resource
+                type: string
+            required:
+            - restartRequired
             type: object
         type: object
     served: true

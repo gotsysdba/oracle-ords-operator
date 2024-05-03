@@ -1,10 +1,27 @@
-# oracle-ords-operator
-// TODO(user): Add simple overview of use/purpose
+# Oracle Rest Data Services (ORDS) Operator for Kubernetes
+
+This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
 
-## Getting Started
+The ORDS Operator extends the Kubernetes API with custom resources and controllers for automating Oracle Rest Data
+Services lifecycle management.  Using the ORDS Operator, you can easily migrate existing, or create new, ORDS implementations
+into an existing Kubernetes cluster.
+
+## Features Summary
+
+The custom RestDataServices resource supports the following configurations:
+
+* Single RestDataServices resource with one database pool
+* Single RestDataServices resource with multiple database pools
+* Multiple RestDataServices resources, each with one database pool
+* Multiple RestDataServices resources, each with multiple database pools
+
+as either a Deployment, StatefulSet, or DaemonSet.
+
+It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md)
+
+The ORDS and APEX schemas can be automatically installed/upgraded into the database by the ORDS Operator.
 
 ### Prerequisites
 - go version v1.20.0+
@@ -69,6 +86,10 @@ More information can be found via the [Kubebuilder Documentation](https://book.k
 
 ## Contributing
 See [Contributing to this Repository](./CONTRIBUTING.md)
+
+## Reporting a Security Issue
+
+See [Reporting security vulnerabilities](./SECURITY.md)
 
 ## License
 
