@@ -631,9 +631,9 @@ type RestDataServicesStatus struct {
 	WorkloadType string `json:"workloadType,omitempty"`
 	// Indicates the ORDS version
 	ORDSVersion string `json:"ordsVersion,omitempty"`
-	// Indicates the HTTP port of the resource
+	// Indicates the HTTP port of the resource exposed by the pods
 	HTTPPort *int32 `json:"httpPort,omitempty"`
-	// Indicates the HTTPS port of the resource
+	// Indicates the HTTPS port of the resource exposed by the pods
 	HTTPSPort *int32 `json:"httpsPort,omitempty"`
 	// Indicates if the resource is out-of-sync with the configuration
 	RestartRequired bool `json:"restartRequired"`
