@@ -19,7 +19,7 @@ jobs:
           go-version-file: 'go.mod'
     
       - name: Run 'make generate manifests gen-doco'
-        run: make generate manifests
+        run: make generate manifests gen-doco
 
       - name: Check for changes
         run: |
