@@ -6,22 +6,6 @@ on:
       - '*'  # Run on all branches
 
 jobs:
-  document:
-    runs-on: ubuntu-latest
-
-    container:
-      image: ghcr.io/fybrik/crdoc:latest
-      volumes:
-        - ${{ github.workspace }}:/workdir
-      options: --entrypoint sh
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Generate API Documentation
-        run: crdoc --resources /workdir/config/crd/bases --output /workdir/docs/api.md
-
   validate:
     runs-on: ubuntu-latest
 
@@ -36,6 +20,9 @@ jobs:
 
       - name: Run 'make generate manifests'
         run: make generate manifests
+
+      - name: Generate documentation
+        run: docker run -u $(id -u):$(id -g) --rm -v ${PWD}:/workdir ghcr.io/fybrik/crdoc:latest --resources /workdir/config/crd/bases --output /workdir/docs/api.md
 
       - name: Check for changes
         run: |
