@@ -10,14 +10,12 @@ into an existing Kubernetes cluster.
 
 ## Features Summary
 
-The custom RestDataServices resource supports the following configurations:
+The custom RestDataServices resource supports the following configurations as either a Deployment, StatefulSet, or DaemonSet:
 
 * Single RestDataServices resource with one database pool
 * Single RestDataServices resource with multiple database pools
 * Multiple RestDataServices resources, each with one database pool
 * Multiple RestDataServices resources, each with multiple database pools
-
-as either a Deployment, StatefulSet, or DaemonSet.
 
 It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md)
 
