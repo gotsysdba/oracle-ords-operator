@@ -762,11 +762,13 @@ spec:
                   type: object
                 type: array
               httpPort:
-                description: Indicates the HTTP port of the resource
+                description: Indicates the HTTP port of the resource exposed by the
+                  pods
                 format: int32
                 type: integer
               httpsPort:
-                description: Indicates the HTTPS port of the resource
+                description: Indicates the HTTPS port of the resource exposed by the
+                  pods
                 format: int32
                 type: integer
               ordsVersion:

@@ -162,6 +162,11 @@ kind-load: ## Load docker image with the manager to Kind Cluster.
 	KIND_CLUSTER=$(shell kind get clusters)
 	kind load docker-image ${IMG} -n $(shell kind get clusters)
 
+.PHONY: gen-doco
+gen-doco: ## Write documentation
+	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@v0.6.3
+	$(LOCALBIN)/crdoc --resources config/crd/bases --output docs/api.md
+
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
 # - be able to use docker buildx. More info: https://docs.docker.com/build/buildx/

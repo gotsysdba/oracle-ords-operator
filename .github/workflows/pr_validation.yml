@@ -18,11 +18,8 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Run 'make generate manifests'
+      - name: Run 'make generate manifests gen-doco'
         run: make generate manifests
-
-      - name: Generate documentation
-        run: docker run -u $(id -u):$(id -g) --rm -v ${PWD}:/workdir ghcr.io/fybrik/crdoc:latest --resources /workdir/config/crd/bases --output /workdir/docs/api.md
 
       - name: Check for changes
         run: |
