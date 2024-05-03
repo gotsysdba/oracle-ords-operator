@@ -34,7 +34,6 @@ Note the following images are pulled as part of the development:
 * docker.io/kindest/node:v1.29.2 (when using Kind)
 * docker.io/moby/buildkit:buildx-stable-1
 * container-registry.oracle.com/os/oraclelinux:9-slim
-* container-registry.oracle.com/database/ords:24.1.0
 
 #### MacOS(Intel)
 This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
@@ -53,11 +52,15 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
     ln -s /usr/local/bin/podman /usr/local/bin/docker
     ```
 3. Create a `podman` machine:
+    During the `init` you may want to increase the cpu/memory/disk (i.e --memory 32768 --cpus 6 --disk-size 1000)
+
     ```bash
-    podman machine init
+    podman machine init 
     podman machine set --rootful
     podman machine start
     ```
+
+
 4. Create a Kind cluster:
     ```bash
     kind create cluster --name ords-operator

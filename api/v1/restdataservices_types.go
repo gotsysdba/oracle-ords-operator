@@ -48,17 +48,25 @@ import (
 // RestDataServicesSpec defines the desired state of RestDataServices
 // +kubebuilder:resource:shortName="ords"
 type RestDataServicesSpec struct {
+	// Specifies the desired Kubernetes Workload
 	//+kubebuilder:validation:Enum=Deployment;StatefulSet;DaemonSet
 	//+kubebuilder:default=Deployment
 	WorkloadType string `json:"workloadType,omitempty"`
+	// Defines the number of desired Replicas when workloadType is Deployment or StatefulSet
 	//+kubebuilder:validation:Minimum=1
 	//+kubebuilder:default=1
 	Replicas int32 `json:"replicas,omitempty"`
 	// Specifies whether to restart pods when Global or Pool configurations change
-	ForceRestart     bool              `json:"forceRestart,omitempty"`
-	Image            string            `json:"image"`
-	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	ImagePullSecrets string            `json:"imagePullSecrets,omitempty"`
+	ForceRestart bool `json:"forceRestart,omitempty"`
+	// Specifies the ORDS container image
+	//+kubecbuilder:default=container-registry.oracle.com/database/ords:latest
+	Image string `json:"image"`
+	// Specifies the ORDS container image pull policy
+	//+kubebuilder:validation:Enum=IfNotPresent;Always;Never
+	//+kubebuilder:default=IfNotPresent
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Specifies the Secret Name for pulling the ORDS container image
+	ImagePullSecrets string `json:"imagePullSecrets,omitempty"`
 	// Contains settings that are configured across the entire ORDS instance.
 	GlobalSettings GlobalSettings `json:"globalSettings"`
 	// Contains settings for individual pools/databases
@@ -198,6 +206,7 @@ type GlobalSettings struct {
 	/*************************************************
 	* Undocumented
 	/************************************************/
+
 	// Specifies that the HTTP Header contains the specified text
 	// Usually set to 'X-Forwarded-Proto: https' coming from a load-balancer
 	SecurityHTTPSHeaderCheck string `json:"security.httpsHeaderCheck,omitempty"`
@@ -252,10 +261,6 @@ type GlobalSettings struct {
 	//StandaloneBinds string `json:"standalone.binds,omitempty"`
 	// This is disabled as containerised
 
-	// Specifies the path to the folder containing static resources required by APEX.
-	// StandaloneStaticPath string `json:"standalone.static.path,omitempty"`
-	// This is disabled as will use the container image path (/opt/oracle/apex/$ORDS_VER/images)
-
 	// Specifies the file where credentials are stored.
 	//SecurityCredentialsFile string `json:"security.credentials.file,omitempty"`
 	// WTF does this do?!?!
@@ -273,6 +278,11 @@ type GlobalSettings struct {
 	// StandaloneStaticContextPath string `json:"standalone.static.context.path,omitempty"`
 	// Does anyone ever change this?  If so, need to also change the APEX install configmap to update path
 	*/
+
+	// Specifies the path to the folder containing static resources required by APEX.
+	// StandaloneStaticPath string `json:"standalone.static.path,omitempty"`
+	// This is disabled as will use the container image path (/opt/oracle/apex/$ORDS_VER/images)
+	// HARDCODED into the entrypoint
 }
 
 type PoolSettings struct {
@@ -582,36 +592,51 @@ type PoolSettings struct {
 
 // Defines the secret containing Password mapped to secretKey
 type PasswordSecret struct {
+	// Specifies the name of the password Secret
 	SecretName string `json:"secretName"`
+	// Specifies the key holding the value of the Secret
 	//+kubebuilder:default:="password"
 	PasswordKey string `json:"passwordKey,omitempty"`
 }
 
 // Defines the secret containing Certificates
 type CertificateSecret struct {
-	SecretName     string `json:"secretName"`
-	Certificate    string `json:"cert"`
+	// Specifies the name of the certificate Secret
+	SecretName string `json:"secretName"`
+	// Specifies the Certificate
+	Certificate string `json:"cert"`
+	// Specifies the Certificate Key
 	CertificateKey string `json:"key"`
 }
 
 // Defines the secret containing Certificates
 type TNSAdminSecret struct {
+	// Specifies the name of the TNS_ADMIN Secret
 	SecretName string `json:"secretName"`
 }
 
 // Defines the secret containing Certificates
 type DBWalletSecret struct {
+	// Specifies the name of the Database Wallet Secret
 	SecretName string `json:"secretName"`
+	// Specifies the Secret key name containing the Wallet
 	WalletName string `json:"walletName"`
 }
 
 // RestDataServicesStatus defines the observed state of RestDataServices
 type RestDataServicesStatus struct {
-	WorkloadType    string `json:"workloadType,omitempty"`
-	ORDSVersion     string `json:"ordsVersion,omitempty"`
-	HTTPPort        *int32 `json:"httpPort,omitempty"`
-	HTTPSPort       *int32 `json:"httpsPort,omitempty"`
-	RestartRequired bool   `json:"restartRequired"`
+	// Indicates the current status of the resource
+	Status string `json:"status,omitempty"`
+	// Indicates the current Workload type of the resource
+	WorkloadType string `json:"workloadType,omitempty"`
+	// Indicates the ORDS version
+	ORDSVersion string `json:"ordsVersion,omitempty"`
+	// Indicates the HTTP port of the resource
+	HTTPPort *int32 `json:"httpPort,omitempty"`
+	// Indicates the HTTPS port of the resource
+	HTTPSPort *int32 `json:"httpsPort,omitempty"`
+	// Indicates if the resource is out-of-sync with the configuration
+	RestartRequired bool `json:"restartRequired"`
 
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
@@ -619,6 +644,7 @@ type RestDataServicesStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:JSONPath=".status.status",name="status",type="string"
 //+kubebuilder:printcolumn:JSONPath=".status.workloadType",name="workloadType",type="string"
 //+kubebuilder:printcolumn:JSONPath=".status.ordsVersion",name="ordsVersion",type="string"
 //+kubebuilder:printcolumn:JSONPath=".status.httpPort",name="httpPort",type="integer"

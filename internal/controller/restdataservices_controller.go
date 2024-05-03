@@ -178,6 +178,10 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Error(err, "Error in ConfigMapDelete (Pools)")
 		return ctrl.Result{}, err
 	}
+	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
+		logr.Error(err, "Failed to re-fetch")
+		return ctrl.Result{}, err
+	}
 
 	// Set the Type as Unsynced when a pod restart is required
 	if RestartPods {
@@ -196,6 +200,10 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Error(err, "Error in WorkloadDelete")
 		return ctrl.Result{}, err
 	}
+	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
+		logr.Error(err, "Failed to re-fetch")
+		return ctrl.Result{}, err
+	}
 
 	// Service
 	if err := r.ServiceReconcile(ctx, ords); err != nil {
@@ -210,6 +218,10 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 	}
+	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
+		logr.Error(err, "Failed to re-fetch")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -222,23 +234,53 @@ func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Req
 
 	// Fetch before Status Update
 	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
-		logr.Error(err, "Failed to re-fetch ORDS")
+		logr.Error(err, "Failed to re-fetch")
 		return err
 	}
+	var readyWorkload int32
+	var desiredWorkload int32
+	switch ords.Spec.WorkloadType {
+	case "StatefulSet":
+		workload := &appsv1.StatefulSet{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, workload); err != nil {
+			logr.Info("StatefulSet not ready")
+		}
+		readyWorkload = workload.Status.ReadyReplicas
+		desiredWorkload = workload.Status.Replicas
+	case "DaemonSet":
+		workload := &appsv1.DaemonSet{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, workload); err != nil {
+			logr.Info("DaemonSet not ready")
+		}
+		readyWorkload = workload.Status.NumberReady
+		desiredWorkload = workload.Status.DesiredNumberScheduled
+	default:
+		workload := &appsv1.Deployment{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, workload); err != nil {
+			logr.Info("Deployment not ready")
+		}
+		readyWorkload = workload.Status.ReadyReplicas
+		desiredWorkload = workload.Status.Replicas
+	}
+
+	var workloadStatus string
+	if readyWorkload == 0 {
+		workloadStatus = "Preparing"
+	} else if readyWorkload == desiredWorkload {
+		workloadStatus = "Healthy"
+	} else {
+		workloadStatus = "Progressing"
+	}
+
 	meta.SetStatusCondition(&ords.Status.Conditions, statusCondition)
+	ords.Status.Status = workloadStatus
 	ords.Status.WorkloadType = ords.Spec.WorkloadType
 	ords.Status.ORDSVersion = strings.Split(ords.Spec.Image, ":")[1]
 	ords.Status.HTTPPort = ords.Spec.GlobalSettings.StandaloneHTTPPort
 	ords.Status.HTTPSPort = ords.Spec.GlobalSettings.StandaloneHTTPSPort
 	ords.Status.RestartRequired = RestartPods
 	if err := r.Status().Update(ctx, ords); err != nil {
-		logr.Error(err, "Failed to update ORDS")
-		return err
-	}
-	logr.Info("Status Sync'd; Restart Required: " + strconv.FormatBool(RestartPods))
-	// Re-Fetch after Status Update
-	if err := r.Get(ctx, req.NamespacedName, ords); err != nil {
-		logr.Error(err, "Failed to re-fetch ORDS")
+		logr.Error(err, "Failed to update Status")
 		return err
 	}
 	return nil
@@ -349,8 +391,7 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req 
 			logr.Info("Created: " + kind)
 			RestartPods = false
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "Created %s", kind)
-			// Requery for comparison
-			r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedWorkload)
+			return nil
 		} else {
 			return err
 		}
@@ -362,12 +403,13 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req 
 		if specHashValue.IsValid() {
 			definedSpecHash = specHashValue.Interface().(string)
 		} else {
-			definedSpecHash = "undefined"
+			return err
 		}
 	}
 
+	logr.Info("Comparing Desired Spec (" + desiredSpecHash + ") with Defined Spec (" + definedSpecHash + ")")
 	if desiredSpecHash != definedSpecHash {
-		logr.Info("Syncing Workload " + kind + "with new configuration")
+		logr.Info("Syncing Workload " + kind + " with new configuration")
 		if err := r.Client.Update(ctx, desiredWorkload); err != nil {
 			return err
 		}
@@ -486,9 +528,10 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 					Name:            ords.Name + "-init",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: securityContextDefine(),
-					Command:         []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
-					Env:             envDefine(ords, true),
-					VolumeMounts:    specVolumeMounts,
+					//Command:         []string{"sh", "-c", "tail -f /dev/null"},
+					Command:      []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
+					Env:          envDefine(ords, true),
+					VolumeMounts: specVolumeMounts,
 				}},
 				Containers: []corev1.Container{{
 					Image:           ords.Spec.Image,
@@ -506,7 +549,7 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 						},
 					},
 					//Command: []string{"sh", "-c", "tail -f /dev/null"},
-					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve"},
+					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images"},
 					Env:          envDefine(ords, false),
 					VolumeMounts: specVolumeMounts,
 				}}},

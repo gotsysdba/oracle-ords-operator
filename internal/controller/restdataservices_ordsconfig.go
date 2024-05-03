@@ -41,6 +41,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -53,62 +54,14 @@ import (
 func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *databasev1.RestDataServices, configMapName string, poolIndex int) *corev1.ConfigMap {
 	defData := make(map[string]string)
 	if configMapName == ords.Name+"-init-script" {
+		// Read the file from controller's filesystem
+		filePath := "/ords_init.sh"
+		scriptData, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			return nil
+		}
 		defData = map[string]string{
-			"init_script.sh": `
-				#!/bin/sh
-				set_secret() {
-					echo "Processing pool $1 wallet from $2"
-					if [ -n "${!2}" ]; then
-						ords --config "$ORDS_CONFIG" config --db-pool "$1" secret --password-stdin "$3" <<< "${!2}"
-					fi
-				}
-
-				upgrade_ords() {
-					echo "Checking to install/upgrade ORDS for pool $1"
-					if [ -n "${!2}" ] && [ "${!3}" = "true" ]; then
-						local ords_user=$(ords --config "$ORDS_CONFIG" config --db-pool "$1" get db.username | tail -1)
-						local ords_admin=$(ords --config "$ORDS_CONFIG" config --db-pool "$1" get db.adminUser | tail -1)
-						echo "Performing ORDS install/upgrade as $ords_admin into $ords_user on pool $1"
-						ords --config "$ORDS_CONFIG" install --db-pool "$1" --db-only \
-							--admin-user "$ords_admin" --password-stdin <<< "${!2}"
-						# Dar be bugs below deck with --db-user
-						# ords --config "$ORDS_CONFIG" install --db-pool "$1" --db-only \
-						# 	--admin-user "$ords_admin" --db-user "$ords_user" --password-stdin <<< "${!2}"
-					fi
-				}
-
-				upgrade_apex() {
-					echo "Checking to install/upgrade APEX for pool $1"
-					if [ -n "${!2}" ] && [ "${!3}" = "true" ]; then
-						local ords_admin=$(ords --config "$ORDS_CONFIG" config --db-pool "$1" get db.adminUser | tail -1)
-						echo "Performing APEX install/upgrade as $ords_admin into $ords_user on pool $1"
-					fi
-				}
-
-				for pool in "$ORDS_CONFIG"/databases/*; do
-					pool_name=$(basename "$pool")
-					set_secret "$pool_name" "${pool_name}_dbsecret" "db.password"
-					set_secret "$pool_name" "${pool_name}_dbadminusersecret" "db.adminUser.password"
-					set_secret "$pool_name" "${pool_name}_dbcdbadminusersecret" "db.cdb.adminUser.password"
-					upgrade_apex "$pool_name" "${pool_name}_dbadminusersecret" "${pool_name}_autoupgrade_apex"
-					upgrade_ords "$pool_name" "${pool_name}_dbadminusersecret" "${pool_name}_autoupgrade_ords"
-				done`,
-			"apex.sql": `
-				conn $CONN_STRING as sysdba
-				@apexins SYSAUX SYSAUX TEMP /i/
-				@apex_rest_config_core.sql /opt/oracle/apex/$APEX_VER/ oracle oracle
-				alter profile default limit password_life_time UNLIMITED;
-				ALTER USER APEX_PUBLIC_USER ACCOUNT UNLOCK;
-				ALTER USER APEX_PUBLIC_USER IDENTIFIED BY oracle;
-				DECLARE 
-					l_user_id NUMBER;
-			  	BEGIN
-					APEX_UTIL.set_workspace(p_workspace => 'INTERNAL');
-					l_user_id := APEX_UTIL.GET_USER_ID('ADMIN');
-					APEX_UTIL.EDIT_USER(p_user_id => l_user_id, p_user_name  => 'ADMIN', p_change_password_on_first_use => 'Y');
-			  	END;
-				/
-			`}
+			"init_script.sh": string(scriptData)}
 	} else if configMapName == ords.Name+"-"+globalConfigMapName {
 		// GlobalConfigMap
 		var defAccessLog string
@@ -158,6 +111,7 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("security.httpsHeaderCheck", ords.Spec.GlobalSettings.SecurityHTTPSHeaderCheck) +
 				conditionalEntry("security.forceHTTPS", ords.Spec.GlobalSettings.SecurityForceHTTPS) +
 				conditionalEntry("externalSessionTrustedOrigins", ords.Spec.GlobalSettings.SecuirtyExternalSessionTrustedOrigins) +
+				// Dynamic
 				defAccessLog +
 				defCert +
 				// Disabled (but not forgotten)

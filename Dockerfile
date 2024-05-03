@@ -26,9 +26,11 @@ COPY internal/controller/ internal/controller/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
 
+# Runtime
 FROM container-registry.oracle.com/os/oraclelinux:9-slim
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY internal/controller/ords_init.sh .
 RUN useradd -u 1001 nonroot
 USER 1001:1001
 

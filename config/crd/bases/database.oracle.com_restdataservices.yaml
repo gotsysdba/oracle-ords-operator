@@ -15,6 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.status
+      name: status
+      type: string
     - jsonPath: .status.workloadType
       name: workloadType
       type: string
@@ -105,10 +108,13 @@ spec:
                       Replaces: standalone.https.cert and standalone.https.cert.key'
                     properties:
                       cert:
+                        description: Specifies the Certificate
                         type: string
                       key:
+                        description: Specifies the Certificate Key
                         type: string
                       secretName:
+                        description: Specifies the name of the certificate Secret
                         type: string
                     required:
                     - cert
@@ -211,10 +217,9 @@ spec:
                       to false as in real-world TLS should terminiate at the LoadBalancer
                     type: boolean
                   security.httpsHeaderCheck:
-                    description: '************************************************
-                      * Undocumented /***********************************************
-                      Specifies that the HTTP Header contains the specified text Usually
-                      set to ''X-Forwarded-Proto: https'' coming from a load-balancer'
+                    description: 'Specifies that the HTTP Header contains the specified
+                      text Usually set to ''X-Forwarded-Proto: https'' coming from
+                      a load-balancer'
                     type: string
                   security.inclusionList:
                     description: Specifies a pattern for procedures, packages, or
@@ -256,12 +261,19 @@ spec:
                     type: integer
                 type: object
               image:
+                description: Specifies the ORDS container image
                 type: string
               imagePullPolicy:
-                description: PullPolicy describes a policy for if/when to pull a container
-                  image
+                default: IfNotPresent
+                description: Specifies the ORDS container image pull policy
+                enum:
+                - IfNotPresent
+                - Always
+                - Never
                 type: string
               imagePullSecrets:
+                description: Specifies the Secret Name for pulling the ORDS container
+                  image
                 type: string
               poolSettings:
                 description: Contains settings for individual pools/databases
@@ -300,8 +312,11 @@ spec:
                       properties:
                         passwordKey:
                           default: password
+                          description: Specifies the key holding the value of the
+                            Secret
                           type: string
                         secretName:
+                          description: Specifies the name of the password Secret
                           type: string
                       required:
                       - secretName
@@ -319,8 +334,11 @@ spec:
                       properties:
                         passwordKey:
                           default: password
+                          description: Specifies the key holding the value of the
+                            Secret
                           type: string
                         secretName:
+                          description: Specifies the name of the password Secret
                           type: string
                       required:
                       - secretName
@@ -368,8 +386,11 @@ spec:
                       properties:
                         passwordKey:
                           default: password
+                          description: Specifies the key holding the value of the
+                            Secret
                           type: string
                         secretName:
+                          description: Specifies the name of the password Secret
                           type: string
                       required:
                       - secretName
@@ -403,8 +424,11 @@ spec:
                         containing connection details for the pool. Replaces: db.wallet.zip'
                       properties:
                         secretName:
+                          description: Specifies the name of the Database Wallet Secret
                           type: string
                         walletName:
+                          description: Specifies the Secret key name containing the
+                            Wallet
                           type: string
                       required:
                       - secretName
@@ -636,6 +660,7 @@ spec:
                         directory Replaces: db.tnsDirectory'
                       properties:
                         secretName:
+                          description: Specifies the name of the TNS_ADMIN Secret
                           type: string
                       required:
                       - secretName
@@ -648,11 +673,14 @@ spec:
                 type: array
               replicas:
                 default: 1
+                description: Defines the number of desired Replicas when workloadType
+                  is Deployment or StatefulSet
                 format: int32
                 minimum: 1
                 type: integer
               workloadType:
                 default: Deployment
+                description: Specifies the desired Kubernetes Workload
                 enum:
                 - Deployment
                 - StatefulSet
@@ -734,16 +762,24 @@ spec:
                   type: object
                 type: array
               httpPort:
+                description: Indicates the HTTP port of the resource
                 format: int32
                 type: integer
               httpsPort:
+                description: Indicates the HTTPS port of the resource
                 format: int32
                 type: integer
               ordsVersion:
+                description: Indicates the ORDS version
                 type: string
               restartRequired:
+                description: Indicates if the resource is out-of-sync with the configuration
                 type: boolean
+              status:
+                description: Indicates the current status of the resource
+                type: string
               workloadType:
+                description: Indicates the current Workload type of the resource
                 type: string
             required:
             - restartRequired

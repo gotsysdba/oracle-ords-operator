@@ -4,16 +4,17 @@ metadata:
   name: ordspoc-server
 spec:
   image: container-registry.oracle.com/database/ords:24.1.0
-  forceRestart: false
+  forceRestart: true
   globalSettings:
-    database.api.enabled: false
+    database.api.enabled: true
   poolSettings:
     - poolName: ORDSPOC
+      autoUpgradeORDS: true
+      autoUpgradeAPEX: true
       restEnabledSql.active: true
-      feature.sdw: true
-      plsql.gateway.mode: proxied
+      plsql.gateway.mode: direct
       db.connectionType: customurl
-      db.customURL: jdbc:oracle:thin:@//10.89.0.3:32292/FREEPDB1
+      db.customURL: jdbc:oracle:thin:@//10.89.0.2:31896/FREEPDB1
       db.username: ORDS_PUBLIC_USER
       db.secret:
         secretName:  db-auth
