@@ -207,8 +207,8 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
-.PHONY: manifest
-manifest: manifests kustomize ## Create the controller manifest.
+.PHONY: release-manifest
+release-manifest: manifests kustomize ## Create the controller manifest.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default > oracle-ords-operator.yaml
 
