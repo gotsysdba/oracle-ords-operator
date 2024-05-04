@@ -86,8 +86,6 @@ const (
 	typeAvailableORDS = "Available"
 	// typeUnsyncedORDS represents the status used when the configuration has changed but the Workload has not been restarted.
 	typeUnsyncedORDS = "Unsynced"
-	// typeAvailableORDS represents the status used when the custom resource is deleted and the finalizer operations must to occur.
-	typeDegradedORDS = "Degraded"
 )
 
 // Trigger a restart of Pods on Config Changes
@@ -240,6 +238,7 @@ func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Req
 	var readyWorkload int32
 	var desiredWorkload int32
 	switch ords.Spec.WorkloadType {
+	//nolint:goconst
 	case "StatefulSet":
 		workload := &appsv1.StatefulSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, workload); err != nil {
@@ -247,6 +246,7 @@ func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Req
 		}
 		readyWorkload = workload.Status.ReadyReplicas
 		desiredWorkload = workload.Status.Replicas
+	//nolint:goconst
 	case "DaemonSet":
 		workload := &appsv1.DaemonSet{}
 		if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, workload); err != nil {
@@ -304,7 +304,9 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 			RestartPods = true
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "ConfigMap %s Created", configMapName)
 			// Requery for comparison
-			r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: ords.Namespace}, definedConfigMap)
+			if err := r.Get(ctx, types.NamespacedName{Name: configMapName, Namespace: ords.Namespace}, definedConfigMap); err != nil {
+				return err
+			}
 		} else {
 			return err
 		}
@@ -451,7 +453,9 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 			logr.Info("Created: Service")
 			r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Create", "Service %s Created", ords.Name)
 			// Requery for comparison
-			r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService)
+			if err := r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService); err != nil {
+				return err
+			}
 		} else {
 			return err
 		}
@@ -566,7 +570,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	// SecretHelper
 	secretHelperVolume := volumeBuild(ords.Name+"-"+"init-script", "ConfigMap", 0770)
 	volumes = append(volumes, secretHelperVolume)
-	secretHelperVolumeMount := volumeMountBuild(ords.Name+"-"+"init-script", ordsSABase+"/bin", false)
+	secretHelperVolumeMount := volumeMountBuild(ords.Name+"-"+"init-script", ordsSABase+"/bin", true)
 	volumeMounts = append(volumeMounts, secretHelperVolumeMount)
 
 	// Build volume specifications for globalSettings
@@ -586,7 +590,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", false)
 	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount)
 	if ords.Spec.GlobalSettings.CertSecret != nil {
-		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", false)
+		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", true)
 		volumeMounts = append(volumeMounts, globalCertVolumeMount)
 	}
 
@@ -613,11 +617,11 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", false)
 		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
 		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
-			poolDBWalletVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", false)
+			poolDBWalletVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
 			volumeMounts = append(volumeMounts, poolDBWalletVolumeMount)
 		}
 		if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
-			poolTNSAdminVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", false)
+			poolTNSAdminVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
 			volumeMounts = append(volumeMounts, poolTNSAdminVolumeMount)
 		}
 	}

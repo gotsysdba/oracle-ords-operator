@@ -28,3 +28,6 @@ jobs:
             echo "Changes detected after generation. Rejecting push."
             exit 1
           fi
+
+      - name: Lint Check
+        run: make lint

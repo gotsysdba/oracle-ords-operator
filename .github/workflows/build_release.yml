@@ -1,12 +1,8 @@
-name: Build Operator Image
+name: Build Release
 on:
-  workflow_dispatch:
-    inputs:
-      message:
-        description: 'Build and Push Operator Image'
-        required: false
-    branches:
-      - main
+  push:
+    tags:
+      - '*'
 
 env:
   REGISTRY: ghcr.io
@@ -21,8 +17,34 @@ jobs:
       id-token: write
 
     steps:
+      - name: Get Tag Name
+        id: tag
+        run: echo "::set-output name=tag_name::${GITHUB_REF#refs/tags/}"
+
+      - name: Validate Tag Name
+        run: |
+          tag_name="${{ steps.tag.outputs.tag_name }}"
+          if [[ ! $tag_name =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid tag name format. Must be x.x.x where x is a number."
+            exit 1
+          fi
+
+      - name: Set VERSION Variable
+        run: |
+          echo "VERSION=${{ steps.tag.outputs.tag_name }}" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Build manifest
+        run: make release-manifest IMG=${{ github.repository }}:${VERSION}
+
+      # Upload the manifest as an artifact
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${VERSION}
+          path: oracle-ords-operator.yaml
 
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign

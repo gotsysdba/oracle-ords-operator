@@ -41,7 +41,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -52,11 +52,11 @@ import (
 )
 
 func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *databasev1.RestDataServices, configMapName string, poolIndex int) *corev1.ConfigMap {
-	defData := make(map[string]string)
+	var defData map[string]string
 	if configMapName == ords.Name+"-init-script" {
 		// Read the file from controller's filesystem
 		filePath := "/ords_init.sh"
-		scriptData, err := ioutil.ReadFile(filePath)
+		scriptData, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil
 		}
