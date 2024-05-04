@@ -136,6 +136,11 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
 
+.PHONY: gen-doco
+gen-doco: ## Write documentation
+	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@v0.6.3
+	$(LOCALBIN)/crdoc --resources config/crd/bases --output docs/api.md
+
 ##@ Build
 
 .PHONY: build
@@ -161,11 +166,6 @@ docker-push: ## Push docker image with the manager.
 kind-load: ## Load docker image with the manager to Kind Cluster.
 	KIND_CLUSTER=$(shell kind get clusters)
 	kind load docker-image ${IMG} -n $(shell kind get clusters)
-
-.PHONY: gen-doco
-gen-doco: ## Write documentation
-	GOBIN=$(LOCALBIN) go install fybrik.io/crdoc@v0.6.3
-	$(LOCALBIN)/crdoc --resources config/crd/bases --output docs/api.md
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -206,6 +206,11 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: manifest
+manifest: manifests kustomize ## Create the controller manifest.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > oracle-ords-operator.yaml
 
 ##@ Build Dependencies
 
