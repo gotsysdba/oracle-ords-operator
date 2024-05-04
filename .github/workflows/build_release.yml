@@ -39,7 +39,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build manifest
-        run: make release-manifest IMG=${{ github.repository }}:${{ VERSION }}
+        run: make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
 
       # Get the release ID or URL
       - name: Get Release ID
