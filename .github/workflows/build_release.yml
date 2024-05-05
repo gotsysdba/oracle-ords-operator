@@ -6,7 +6,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
@@ -17,35 +16,33 @@ jobs:
       id-token: write
 
     steps:
-      - name: Get Tag Name
-        id: tag
-        run: echo "::set-output name=tag_name::${GITHUB_REF#refs/tags/}"
+
 
       - name: Validate Tag Name
         run: |
-          tag_name="${{ steps.tag.outputs.tag_name }}"
-          if [[ ! $tag_name =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            echo "Invalid tag name format. Must be vX.X.X where X is an integer from 0 to 999."
+          if [[ ! $GITHUB_REF_NAME =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "Invalid tag name format. Must be in the format vMAJOR.MINOR.PATCH"
             exit 1
           fi
 
-      - name: Set VERSION Variable
+      - name: Set VERSION
         run: |
-          tag_name="${{ steps.tag.outputs.tag_name }}"
-          version="${tag_name:1}"
-          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo VERSION=${GITHUB_REF_NAME:1} >> $GITHUB_ENV
+          echo IMAGE_NAME={{ github.repository }}:${{ env.VERSION }} >> IMAGE_NAME
+          echo "Building Tag: $GITHUB_REF_NAME. Image: ${{ env.IMAGE_NAME }}"
 
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Build manifest
-        run: make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
+        run: make release-manifest IMG=${{ env.IMAGE_NAME }}
 
       # Get the release ID or URL
       - name: Get Release ID
         id: get_release
         run: |
-          echo "::set-output name=release_id::$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.tag.outputs.tag_name }} | jq -r '.id')"
+          echo "release_id=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/releases/tags/$GITHUB_REF_NAME | jq -r '.id')" >> $GITHUB_ENV
+          echo "Found Release ID: ${{ env.release_id }}"
 
       # Upload the artifact to the release
       - name: Upload Artifact to Release
@@ -54,7 +51,7 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @oracle-ords-operator.yml \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release.outputs.release_id }}/assets?name=oracle-ords-operator.yml"
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.release_id }}/assets?name=oracle-ords-operator.yml"
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
