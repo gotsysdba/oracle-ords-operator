@@ -1,8 +1,7 @@
 name: Build Release
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -13,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
 
@@ -33,25 +32,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build manifest
-        run: make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
-
-      # Get the release ID or URL
-      - name: Get Release ID
-        id: get_release
-        run: |
-          echo "release_id=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/releases/tags/$GITHUB_REF_NAME | jq -r '.id')" >> $GITHUB_ENV
-
-      # Upload the artifact to the release
-      - name: Upload Artifact to Release
-        run: |
-          echo "Uploading ${{ env.MANIFEST }} to Release ID: ${{ env.release_id }}"
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @${{ env.MANIFEST }} \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.release_id }}/assets?name=${{ env.MANIFEST }}"
-
+      - name: Build and Push Manifest
+        run: | 
+          make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
+          gh release upload ${{github.event.release.tag_name}} ${{ env.MANIFEST }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
       # https://github.com/docker/setup-buildx-action
