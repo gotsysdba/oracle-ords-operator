@@ -8,7 +8,7 @@ env:
   REGISTRY: ghcr.io
   MANIFEST: ${GITHUB_REPOSITORY#${GITHUB_REPOSITORY_OWNER}/}.yml
   VERSION: ${GITHUB_REF_NAME:1}
-
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,6 +18,11 @@ jobs:
       id-token: write
 
     steps:
+      - name: Output Environment
+        run: |
+          echo "Manifest: ${{ env.MANIFEST }}"
+          echo "Image: ${{ github.repository }}:${{ env.VERSION }}"
+      
       - name: Validate Tag Name
         run: |
           if [[ ! $GITHUB_REF_NAME =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -25,27 +30,22 @@ jobs:
             exit 1
           fi
 
-      - name: Set IMAGE_NAME
-        run: |
-          echo IMAGE_NAME="${{ github.repository }}:${{ env.VERSION }}" >> $GITHUB_ENV
-          echo "Building Tag: $GITHUB_REF_NAME. Image: ${{ env.IMAGE_NAME }}"
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Build manifest
-        run: make release-manifest IMG=${{ env.IMAGE_NAME }}
+        run: make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
 
       # Get the release ID or URL
       - name: Get Release ID
         id: get_release
         run: |
           echo "release_id=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/releases/tags/$GITHUB_REF_NAME | jq -r '.id')" >> $GITHUB_ENV
-          echo "Found Release ID: ${{ env.release_id }}"
 
       # Upload the artifact to the release
       - name: Upload Artifact to Release
         run: |
+          echo "Uploading ${{ env.MANIFEST }} to Release ID: ${{ env.release_id }}"
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
@@ -73,7 +73,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
