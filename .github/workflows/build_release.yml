@@ -6,6 +6,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  MANIFEST: ${GITHUB_REPOSITORY#${GITHUB_REPOSITORY_OWNER}/}.yml
+  VERSION: ${GITHUB_REF_NAME:1}
 
 jobs:
   build:
@@ -16,8 +18,6 @@ jobs:
       id-token: write
 
     steps:
-
-
       - name: Validate Tag Name
         run: |
           if [[ ! $GITHUB_REF_NAME =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -25,10 +25,9 @@ jobs:
             exit 1
           fi
 
-      - name: Set VERSION
+      - name: Set IMAGE_NAME
         run: |
-          echo VERSION=${GITHUB_REF_NAME:1} >> $GITHUB_ENV
-          echo IMAGE_NAME={{ github.repository }}:${{ env.VERSION }} >> IMAGE_NAME
+          echo IMAGE_NAME="${{ github.repository }}:${{ env.VERSION }}" >> $GITHUB_ENV
           echo "Building Tag: $GITHUB_REF_NAME. Image: ${{ env.IMAGE_NAME }}"
 
       - name: Checkout repository
@@ -50,8 +49,8 @@ jobs:
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/octet-stream" \
-            --data-binary @oracle-ords-operator.yml \
-            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.release_id }}/assets?name=oracle-ords-operator.yml"
+            --data-binary @${{ env.MANIFEST }} \
+            "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.release_id }}/assets?name=${{ env.MANIFEST }}"
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
