@@ -409,7 +409,6 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req 
 		}
 	}
 
-	logr.Info("Comparing Desired Spec (" + desiredSpecHash + ") with Defined Spec (" + definedSpecHash + ")")
 	if desiredSpecHash != definedSpecHash {
 		logr.Info("Syncing Workload " + kind + " with new configuration")
 		if err := r.Client.Update(ctx, desiredWorkload); err != nil {
@@ -532,10 +531,9 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 					Name:            ords.Name + "-init",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: securityContextDefine(),
-					//Command:         []string{"sh", "-c", "tail -f /dev/null"},
-					Command:      []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
-					Env:          envDefine(ords, true),
-					VolumeMounts: specVolumeMounts,
+					Command:         []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
+					Env:             envDefine(ords, true),
+					VolumeMounts:    specVolumeMounts,
 				}},
 				Containers: []corev1.Container{{
 					Image:           ords.Spec.Image,
@@ -553,7 +551,7 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 						},
 					},
 					//Command: []string{"sh", "-c", "tail -f /dev/null"},
-					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images"},
+					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images --debug"},
 					Env:          envDefine(ords, false),
 					VolumeMounts: specVolumeMounts,
 				}}},
@@ -578,7 +576,8 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	globalWalletVolume := volumeBuild("sa-wallet-global", "EmptyDir")
 	globalLogVolume := volumeBuild("sa-log-global", "EmptyDir")
 	globalConfigVolume := volumeBuild(ords.Name+"-"+globalConfigMapName, "ConfigMap")
-	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume)
+	globalDocRootVolume := volumeBuild("sa-doc-root", "EmptyDir")
+	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume, globalDocRootVolume)
 	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolume := volumeBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, "Secret")
 		volumes = append(volumes, globalCertVolume)
@@ -587,8 +586,9 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 	standaloneVolumeMount := volumeMountBuild("standalone", ordsSABase+"/config/global/standalone/", false)
 	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsSABase+"/config/global/wallet/", false)
 	globalLogVolumeMount := volumeMountBuild("sa-log-global", ordsSABase+"/log/global/", false)
-	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", false)
-	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount)
+	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", true)
+	globalDocRootVolumeMount := volumeMountBuild("sa-doc-root", ordsSABase+"/config/global/doc_root/", false)
+	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount, globalDocRootVolumeMount)
 	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", true)
 		volumeMounts = append(volumeMounts, globalCertVolumeMount)
@@ -614,7 +614,7 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 
 		// The folder named databases/<pool-name>/wallet/ contains an Oracle auto login wallet that contains the credentials for the database pool
 		poolWalletVolumeMount := volumeMountBuild(poolWalletName, ordsSABase+"/config/databases/"+poolName+"/wallet/", false)
-		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", false)
+		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", true)
 		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
 		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
 			poolDBWalletVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)

@@ -37,39 +37,32 @@ Install the Oracle ORDS Operator:
 kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/latest/download/oracle-ords-operator.yaml
 ```
 
-### Deploy a Containerised Oracle Database
+### Bind the OraOperator to the ADB
 
-1. Create a Secret for the Database password:
+1. Obtain the OCID of the ADB and set to an environment variable:
 
-    ```bash
-    DB_PWD=$(echo "ORDSPOC_$(date +%H%S%M)")
+  ```
+  export ADB_OCID=<insert OCID here>
+  ```
 
-    kubectl create secret generic db-auth \
-      --from-literal=password=${DB_PWD}
-    ```
-1. Create a manifest for the containerised Oracle Database.
-
-    The POC uses an Oracle Free Image, but other versions may be subsituted; review the OraOperator Documentation for details on the manifests.
+1. Create a manifest to bind to the ADB.
 
     ```bash
     echo "
     apiVersion: database.oracle.com/v1alpha1
-    kind: SingleInstanceDatabase
+    kind: AutonomousDatabase
     metadata:
-      name: ordspoc-sidb
+      name: adb-existing
     spec:
-      replicas: 1
-      image:
-        pullFrom: container-registry.oracle.com/database/free:23.4.0.0
-        prebuiltDB: true
-      sid: FREE
-      edition: free
-      adminPassword:
-        secretName: db-auth
-        secretKey: password
-      pdbName: FREEPDB1" | kubectl apply -f -
+      hardLink: false
+      details:
+        autonomousDatabaseOCID: $ADB_OCID
+        wallet:
+          name: adb-tns-admin
+          password:
+            k8sSecret:
+              name: db-auth" | kubectl apply -f -
     ```
-    <sup>latest container-registry.oracle.com/database/free version, **23.4.0.0**, valid as of **2-May-2024**</sup>
 
 1. Apply the Container Oracle Database manifest:
     ```bash

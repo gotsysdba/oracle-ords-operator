@@ -111,6 +111,7 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("security.httpsHeaderCheck", ords.Spec.GlobalSettings.SecurityHTTPSHeaderCheck) +
 				conditionalEntry("security.forceHTTPS", ords.Spec.GlobalSettings.SecurityForceHTTPS) +
 				conditionalEntry("externalSessionTrustedOrigins", ords.Spec.GlobalSettings.SecuirtyExternalSessionTrustedOrigins) +
+				`  <entry key="standalone.doc.root">` + ordsSABase + `/config/global/doc_root/</entry>` + "\n" +
 				// Dynamic
 				defAccessLog +
 				defCert +
@@ -122,14 +123,22 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				// conditionalEntry("standalone.doc.root", ords.Spec.GlobalSettings.StandaloneDocRoot) +
 				// conditionalEntry("standalone.static.context.path", ords.Spec.GlobalSettings.StandaloneStaticContextPath) +
 				`</properties>`),
+			"logging.properties": fmt.Sprintf(`handlers=java.util.logging.FileHandler` + "\n" +
+				`.level=SEVERE` + "\n" +
+				`java.util.logging.FileHandler.level=ALL` + "\n" +
+				`oracle.dbtools.level=FINEST` + "\n" +
+				`java.util.logging.FileHandler.pattern = ` + ordsSABase + `/log/global/debug.log` + "\n" +
+				`java.util.logging.FileHandler.formatter = java.util.logging.SimpleFormatter`),
 		}
 	} else {
 		// PoolConfigMap
 		poolName := strings.ToLower(ords.Spec.PoolSettings[poolIndex].PoolName)
-		var defDBWalletZip string
+		var defDBNetworkPath string
 		if ords.Spec.PoolSettings[poolIndex].DBWalletSecret != nil {
-			defDBWalletZip = `  <entry key="db.wallet.zip">` + ords.Spec.PoolSettings[poolIndex].DBWalletSecret.WalletName + `</entry>` + "\n" +
-				`  <entry key="db.wallet.zip.path">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n"
+			defDBNetworkPath = `  <entry key="db.wallet.zip.path">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/` + ords.Spec.PoolSettings[poolIndex].DBWalletSecret.WalletName + `</entry>` + "\n" +
+				conditionalEntry("db.wallet.zip.service", strings.ToUpper(ords.Spec.PoolSettings[poolIndex].DBWalletZipService)) + "\n"
+		} else {
+			defDBNetworkPath = `  <entry key="db.tnsDirectory">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n"
 		}
 		defData = map[string]string{
 			"pool.xml": fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
@@ -142,7 +151,6 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("apex.security.user.roles", ords.Spec.PoolSettings[poolIndex].ApexSecurityUserRoles) +
 				conditionalEntry("db.credentialsSource", ords.Spec.PoolSettings[poolIndex].DBCredentialsSource) +
 				conditionalEntry("db.poolDestroyTimeout", ords.Spec.PoolSettings[poolIndex].DBPoolDestroyTimeout) +
-				conditionalEntry("db.wallet.zip.service", ords.Spec.PoolSettings[poolIndex].DBWalletZipService) +
 				conditionalEntry("debug.trackResources", ords.Spec.PoolSettings[poolIndex].DebugTrackResources) +
 				conditionalEntry("feature.openservicebroker.exclude", ords.Spec.PoolSettings[poolIndex].FeatureOpenservicebrokerExclude) +
 				conditionalEntry("feature.sdw", ords.Spec.PoolSettings[poolIndex].FeatureSDW) +
@@ -163,7 +171,6 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("db.hostname", ords.Spec.PoolSettings[poolIndex].DBHostname) +
 				conditionalEntry("db.port", ords.Spec.PoolSettings[poolIndex].DBPort) +
 				conditionalEntry("db.servicename", ords.Spec.PoolSettings[poolIndex].DBServicename) +
-				conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings[poolIndex].DBServiceNameSuffix) +
 				conditionalEntry("db.sid", ords.Spec.PoolSettings[poolIndex].DBSid) +
 				conditionalEntry("db.tnsAliasName", ords.Spec.PoolSettings[poolIndex].DBTnsAliasName) +
 				conditionalEntry("jdbc.DriverType", ords.Spec.PoolSettings[poolIndex].JDBCDriverType) +
@@ -185,13 +192,13 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("soda.defaultLimit", ords.Spec.PoolSettings[poolIndex].SODADefaultLimit) +
 				conditionalEntry("soda.maxLimit", ords.Spec.PoolSettings[poolIndex].SODAMaxLimit) +
 				conditionalEntry("restEnabledSql.active", ords.Spec.PoolSettings[poolIndex].RestEnabledSqlActive) +
-				`  <entry key="db.tnsDirectory">` + ordsSABase + `/config/databases/` + poolName + `/network/admin/</entry>` + "\n" +
-				defDBWalletZip +
+				defDBNetworkPath +
 				// Disabled (but not forgotten)
 				// conditionalEntry("autoupgrade.api.aulocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIAulocation) +
 				// conditionalEntry("autoupgrade.api.enabled", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIEnabled) +
 				// conditionalEntry("autoupgrade.api.jvmlocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPIJvmlocation) +
 				// conditionalEntry("autoupgrade.api.loglocation", ords.Spec.PoolSettings[poolIndex].AutoupgradeAPILoglocation) +
+				// conditionalEntry("db.serviceNameSuffix", ords.Spec.PoolSettings[poolIndex].DBServiceNameSuffix) +
 				`</properties>`),
 		}
 	}

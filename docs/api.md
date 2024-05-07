@@ -545,16 +545,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b><a href="#restdataservicesspecpoolsettingsindexdbsecret">db.secret</a></b></td>
         <td>object</td>
         <td>
-          Specifies the Secret with the dbUsername and dbPassword values for the connection.  Replaces:<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>db.username</b></td>
-        <td>string</td>
-        <td>
-          Specifies the name of the database user for the connection.<br/>
-          <br/>
-            <i>Default</i>: ORDS_PUBLIC_USER<br/>
+          Specifies the Secret with the dbUsername and dbPassword values for the connection.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -582,7 +573,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>autoUpgradeAPEX</b></td>
         <td>boolean</td>
         <td>
-          Specify whether to perform APEX installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored<br/>
+          Specify whether to perform APEX installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored This setting will be ignored for ADB<br/>
           <br/>
             <i>Default</i>: false<br/>
         </td>
@@ -591,7 +582,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>autoUpgradeORDS</b></td>
         <td>boolean</td>
         <td>
-          Specify whether to perform ORDS installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored<br/>
+          Specify whether to perform ORDS installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored This setting will be ignored for ADB<br/>
           <br/>
             <i>Default</i>: false<br/>
         </td>
@@ -680,13 +671,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         </td>
         <td>false</td>
       </tr><tr>
-        <td><b>db.serviceNameSuffix</b></td>
-        <td>string</td>
-        <td>
-          Specifies that the pool points to a CDB, and that the PDBs connected to that CDB should be made addressable by Oracle REST Data Services<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
         <td><b>db.servicename</b></td>
         <td>string</td>
         <td>
@@ -705,6 +689,15 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies the TNS alias name that matches the name in the tnsnames.ora file.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>db.username</b></td>
+        <td>string</td>
+        <td>
+          Specifies the name of the database user for the connection. For non-ADB this will default to ORDS_PUBLIC_USER For ADBs this will default to ORDS_PUBLIC_USER_OPER If ORDS_PUBLIC_USER is specified for an ADB, it will be ignored<br/>
+          <br/>
+            <i>Default</i>: ORDS_PUBLIC_USER<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1039,7 +1032,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
 
 
 
-Specifies the Secret with the dbUsername and dbPassword values for the connection.  Replaces:
+Specifies the Secret with the dbUsername and dbPassword values for the connection.
 
 <table>
     <thead>
