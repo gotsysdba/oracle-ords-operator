@@ -55,6 +55,7 @@ function run_sql {
 	## Get ADB Wallet
 	local -r wallet_zip_path=$($ords_cfg_cmd get db.wallet.zip.path | tail -1)
 	if [[ -n $wallet_zip_path ]]; then
+		echo "Using: set cloudconfig ${wallet_zip_path}"
 		local -r cloudconfig="set cloudconfig ${wallet_zip_path}"
 	fi
 

@@ -74,7 +74,7 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
 1. Install Software using dnf
 
     ```bash
-    dnf install podman
+    dnf install podman podman-docker golang 
     ```
 
 2. Install Kind and Kubectl:
@@ -83,13 +83,15 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
     [ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     chomd u+x kind kubectl
+    cp kind /usr/local/bin
+    cp kubectl /usr/local/bin
     ```
 
 4. Create a Kind cluster:
     ```bash
     kind create cluster --name ords-operator
     ```
-    
+
 5. Verify cluster access:
     ```bash
     kubectl cluster-info --context kind-ords-operator

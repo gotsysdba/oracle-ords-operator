@@ -2,7 +2,8 @@
 
 This example walks through using the **ORDS Operator** with an Oracle Autonomous Database.  
 
-This assumes that an ADB has already been provisioned and is configured as "Secure Access from Anywhere"
+This assumes that an ADB has already been provisioned and is configured as "Secure Access from Anywhere".  
+Note that if behind a Proxy, this example will not work as the Wallet will need to be modified to support the proxy configuration.
 
 ### Install ORDS Operator
 
@@ -57,7 +58,7 @@ kubectl create secret generic db-auth \
     metadata:
       name: ordspoc-server
     spec:
-      image: container-registry.oracle.com/database/ords:24.1.0
+      image: container-registry.oracle.com/database/ords:23.4.0
       forceRestart: true
       globalSettings:
         database.api.enabled: true
@@ -79,6 +80,7 @@ kubectl create secret generic db-auth \
             secretName:  db-auth
             passwordKey: password" | kubectl apply -f -
     ```
+    <sup>24.1.0 cannot be used due to a image ENV issue</sup>
 
 1. Apply the Container Oracle Database manifest:
     ```bash
