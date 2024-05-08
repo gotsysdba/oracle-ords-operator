@@ -23,7 +23,7 @@ Review [cert-managers installation documentation](https://cert-manager.io/docs/i
 
 ### Install OraOperator
 
-Install the [Oracle Operator for Kubernetes](https://github.com/oracle/oracle-database-operator/tree/main)
+Install the [Oracle Operator for Kubernetes](https://github.com/oracle/oracle-database-operator/tree/main):
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operator/main/oracle-database-operator.yaml
@@ -31,7 +31,11 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
 
 ### Install ORDS Operator
 
-<TODO>
+Install the Oracle ORDS Operator:
+
+```bash
+kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/latest/download/oracle-ords-operator.yaml
+```
 
 ### Deploy a Containerised Oracle Database
 
@@ -40,7 +44,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     ```bash
     DB_PWD=$(echo "ORDSPOC_$(date +%H%S%M)")
 
-    kubectl create secret generic db-auth \
+    kubectl create secret generic sidb-db-auth \
       --from-literal=password=${DB_PWD}
     ```
 1. Create a manifest for the containerised Oracle Database.
@@ -48,7 +52,7 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     The POC uses an Oracle Free Image, but other versions may be subsituted; review the OraOperator Documentation for details on the manifests.
 
     ```bash
-    cat > ordspoc-sidb.yaml <<- EOF
+    echo "
     apiVersion: database.oracle.com/v1alpha1
     kind: SingleInstanceDatabase
     metadata:
@@ -61,10 +65,9 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
       sid: FREE
       edition: free
       adminPassword:
-        secretName: db-auth
+        secretName: sidb-db-auth
         secretKey: password
-      pdbName: FREEPDB1
-    EOF
+      pdbName: FREEPDB1" | kubectl apply -f -
     ```
     <sup>latest container-registry.oracle.com/database/free version, **23.4.0.0**, valid as of **2-May-2024**</sup>
 
@@ -103,44 +106,35 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
     The `db.username` will be used as the ORDS schema in the database during the install/upgrade process (ORDS_PUBLIC_USER).
 
     ```bash
-    cat > ordspoc-server.yaml <<- EOF
+    echo "
     apiVersion: database.oracle.com/v1
     kind: RestDataServices
     metadata:
-      name: ordspoc-server
+      name: ordspoc-sidb
     spec:
       image: container-registry.oracle.com/database/ords:24.1.0
       forceRestart: true
       globalSettings:
         database.api.enabled: true
       poolSettings:
-        - poolName: ORDSPOC
+        - poolName: default
           autoUpgradeORDS: true
           autoUpgradeAPEX: true
           restEnabledSql.active: true
           plsql.gateway.mode: direct
           db.connectionType: customurl
           db.customURL: jdbc:oracle:thin:@//${CONN_STRING}
-          db.username: ORDS_PUBLIC_USER
           db.secret:
-            secretName:  db-auth
-            passwordKey: password
+            secretName:  sidb-db-auth
           db.adminUser: SYS
           db.adminUser.secret:
-            secretName:  db-auth
-            passwordKey: password
-    EOF
+            secretName:  sidb-db-auth" | kubectl apply -f -
     ```
     <sup>latest container-registry.oracle.com/database/ords version, **24.1.0**, valid as of **2-May-2024**</sup>
 
-1. Apply the Container Oracle Database manifest:
-    ```bash
-    kubectl apply -f ordspoc-server.yaml
-    ```
-
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
-    kubectl get restdataservices ordspoc-server -w
+    kubectl get restdataservices ordspoc-sidb -w
     ```
 
     **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  If APEX
@@ -152,7 +146,17 @@ kubectl apply -f https://raw.githubusercontent.com/oracle/oracle-database-operat
 Open a port-forward to the ORDS service, for example:
 
 ```bash
-kubectl port-forward service/ordspoc-server 8443:8443
+kubectl port-forward service/ordspoc-sidb 8443:8443
 ```
 
-Direct your browser to: `https://localhost:8443/ords/ordspoc`
+Direct your browser to: `https://localhost:8443/ords`
+
+## Conclusion
+
+This example has a single database pool, named `default`.  It is set to:
+
+* Automatically restart when the configuration changes: `forceRestart: true`
+* Automatically install/update ORDS on startup, if required: `autoUpgradeORDS: true`
+* Automatically install/update APEX on startup, if required: `autoUpgradeAPEX: true`
+* Use a basic connection string to connect to the database: `db.customURL: jdbc:oracle:thin:@//${CONN_STRING}`
+* The `passwordKey` has been ommitted from both `db.secret` and `db.adminUser.secret` as the password was stored in the default key (`password`)

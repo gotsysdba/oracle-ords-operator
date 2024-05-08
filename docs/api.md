@@ -174,15 +174,13 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies the setting to enable or disable metadata caching.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>cache.metadata.graphql.expireAfterAccess</b></td>
         <td>integer</td>
         <td>
-          Specifies the duration after a GraphQL schema is not accessed from the cache that it expires. Default: 8h<br/>
+          Specifies the duration after a GraphQL schema is not accessed from the cache that it expires.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -192,8 +190,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies the setting to enable or disable JWKS caching.<br/>
-          <br/>
-            <i>Default</i>: true<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -209,7 +205,7 @@ Contains settings that are configured across the entire ORDS instance.
         <td><b>cache.metadata.jwks.expireAfterWrite</b></td>
         <td>integer</td>
         <td>
-          Specifies the duration after a JWK is cached, that is, it expires and has to be loaded again. Default: 5m<br/>
+          Specifies the duration after a JWK is cached, that is, it expires and has to be loaded again.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -253,8 +249,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies whether the Database API is enabled.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -268,7 +262,7 @@ Contains settings that are configured across the entire ORDS instance.
         <td><b>db.invalidPoolTimeout</b></td>
         <td>integer</td>
         <td>
-          Specifies how long to wait before retrying an invalid pool. Default: 15m<br/>
+          Specifies how long to wait before retrying an invalid pool.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -278,8 +272,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies whether to display error messages on the browser.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -296,8 +288,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>string</td>
         <td>
           Specifies how the HTTP error responses must be formatted. html - Force all responses to be in HTML format json - Force all responses to be in JSON format auto - Automatically determines most appropriate format for the request (default).<br/>
-          <br/>
-            <i>Default</i>: auto<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -307,7 +297,6 @@ Contains settings that are configured across the entire ORDS instance.
           Specifies the maximum join nesting depth limit for GraphQL queries.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 5<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -340,8 +329,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies whether procedures are to be logged.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -358,14 +345,13 @@ Contains settings that are configured across the entire ORDS instance.
           Specifies the maximum number of unsuccessful password attempts allowed. Enabled by setting a positive integer value.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: -1<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>security.credentials.lock.time</b></td>
         <td>integer</td>
         <td>
-          Specifies the period to lock the account that has exceeded maximum attempts. Default: 10m<br/>
+          Specifies the period to lock the account that has exceeded maximum attempts.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -375,8 +361,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           If this value is set to true, then the Oracle REST Data Services internal exclusion list is not enforced. Oracle recommends that you do not set this value to true.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -398,8 +382,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies to force HTTPS; this is set to default to false as in real-world TLS should terminiate at the LoadBalancer<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -423,7 +405,6 @@ Contains settings that are configured across the entire ORDS instance.
           Specifies the maximum number of cached procedure validations. Set this value to 0 to force the validation procedure to be invoked on each request.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 2000<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -431,8 +412,6 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies whether HTTPS is available in your environment.<br/>
-          <br/>
-            <i>Default</i>: true<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -475,7 +454,7 @@ Contains settings that are configured across the entire ORDS instance.
         <td><b>standalone.stop.timeout</b></td>
         <td>integer</td>
         <td>
-          Specifies the period for Standalone Mode to wait until it is gracefully shutdown. Default: 10s<br/>
+          Specifies the period for Standalone Mode to wait until it is gracefully shutdown.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -545,16 +524,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b><a href="#restdataservicesspecpoolsettingsindexdbsecret">db.secret</a></b></td>
         <td>object</td>
         <td>
-          Specifies the Secret with the dbUsername and dbPassword values for the connection.  Replaces:<br/>
-        </td>
-        <td>true</td>
-      </tr><tr>
-        <td><b>db.username</b></td>
-        <td>string</td>
-        <td>
-          Specifies the name of the database user for the connection.<br/>
-          <br/>
-            <i>Default</i>: ORDS_PUBLIC_USER<br/>
+          Specifies the Secret with the dbUsername and dbPassword values for the connection.<br/>
         </td>
         <td>true</td>
       </tr><tr>
@@ -582,7 +552,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>autoUpgradeAPEX</b></td>
         <td>boolean</td>
         <td>
-          Specify whether to perform APEX installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored<br/>
+          Specify whether to perform APEX installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored This setting will be ignored for ADB<br/>
           <br/>
             <i>Default</i>: false<br/>
         </td>
@@ -591,7 +561,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>autoUpgradeORDS</b></td>
         <td>boolean</td>
         <td>
-          Specify whether to perform ORDS installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored<br/>
+          Specify whether to perform ORDS installation/upgrades automatically The db.adminUser and db.adminUser.secret must be set, otherwise setting is ignored This setting will be ignored for ADB<br/>
           <br/>
             <i>Default</i>: false<br/>
         </td>
@@ -601,8 +571,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies the username for the database account that ORDS uses for administration operations in the database.<br/>
-          <br/>
-            <i>Default</i>: SYS<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -617,8 +585,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies the username for the database account that ORDS uses for the Pluggable Database Lifecycle Management.<br/>
-          <br/>
-            <i>Default</i>: <br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -644,7 +610,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the source for database credentials when creating a direct connection for running SQL statements. Value can be one of pool or request. If the value is pool, then the credentials defined in this pool is used to create a JDBC connection. If the value request is used, then the credentials in the request is used to create a JDBC connection and if successful, grants the requestor SQL Developer role.<br/>
           <br/>
             <i>Enum</i>: pool, request<br/>
-            <i>Default</i>: pool<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -665,7 +630,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>db.poolDestroyTimeout</b></td>
         <td>integer</td>
         <td>
-          Indicates how long to wait to gracefully destroy a pool before moving to forcefully destroy all connections including borrowed ones. Default: 5m<br/>
+          Indicates how long to wait to gracefully destroy a pool before moving to forcefully destroy all connections including borrowed ones.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -677,13 +642,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the database listener port.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-        </td>
-        <td>false</td>
-      </tr><tr>
-        <td><b>db.serviceNameSuffix</b></td>
-        <td>string</td>
-        <td>
-          Specifies that the pool points to a CDB, and that the PDBs connected to that CDB should be made addressable by Oracle REST Data Services<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -705,6 +663,15 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies the TNS alias name that matches the name in the tnsnames.ora file.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>db.username</b></td>
+        <td>string</td>
+        <td>
+          Specifies the name of the database user for the connection. For non-ADB this will default to ORDS_PUBLIC_USER For ADBs this must be specified and not ORDS_PUBLIC_USER If ORDS_PUBLIC_USER is specified for an ADB, the workload will fail<br/>
+          <br/>
+            <i>Default</i>: ORDS_PUBLIC_USER<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -756,7 +723,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the JDBC driver type.<br/>
           <br/>
             <i>Enum</i>: thin, oci8<br/>
-            <i>Default</i>: thin<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -766,7 +732,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies how long an available connection can remain idle before it is closed. The inactivity connection timeout is in seconds.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 1800<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -776,7 +741,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the initial size for the number of connections that will be created. The default is low, and should probably be set higher in most production environments.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 10<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -786,7 +750,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the maximum number of times to reuse a connection before it is discarded and replaced with a new connection.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 1000<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -796,7 +759,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the maximum number of connections. Might be too low for some production environments.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 10<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -806,7 +768,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the maximum number of statements to cache for each connection.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 10<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -816,7 +777,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the minimum number of connections.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 2<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -831,8 +791,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>boolean</td>
         <td>
           Specifies if the PL/SQL Gateway calls can be authenticated using database users. If the value is true then this feature is enabled. If the value is false, then this feature is disabled. Oracle recommends not to use this feature. This feature used only to facilitate customers migrating from mod_plsql.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -840,8 +798,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies how a pooled JDBC connection and corresponding database session, is released when a request has been processed.<br/>
-          <br/>
-            <i>Default</i>: RECYCLE<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -851,7 +807,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies a timeout period on a statement. An abnormally long running query or script, executed by a request, may leave it in a hanging state unless a timeout is set on the statement. Setting a timeout on the statement ensures that all the queries automatically timeout if they are not completed within the specified time period.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 900<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -868,7 +823,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the maximum number of rows that will be returned from a query when processing a RESTful service and that will be returned from a nested cursor in a result set. Affects all RESTful services generated through a SQL query, regardless of whether the resource is paginated.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 10000<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -913,15 +867,13 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>boolean</td>
         <td>
           Specifies whether the REST-Enabled SQL service is active.<br/>
-          <br/>
-            <i>Default</i>: false<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>security.jwks.connection.timeout</b></td>
         <td>integer</td>
         <td>
-          Specifies the maximum amount of time before timing-out when accessing a JWK url. Default: 5s<br/>
+          Specifies the maximum amount of time before timing-out when accessing a JWK url.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -930,7 +882,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>security.jwks.read.timeout</b></td>
         <td>integer</td>
         <td>
-          Specifies the maximum amount of time reading a response from the JWK url before timing-out. Default: 5s<br/>
+          Specifies the maximum amount of time reading a response from the JWK url before timing-out.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -951,14 +903,13 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Specifies the maximum number of bytes read from the JWK url.<br/>
           <br/>
             <i>Format</i>: int32<br/>
-            <i>Default</i>: 100000<br/>
         </td>
         <td>false</td>
       </tr><tr>
         <td><b>security.jwt.allowed.age</b></td>
         <td>integer</td>
         <td>
-          Specifies the maximum allowed age of a JWT in seconds, regardless of expired claim. The age of the JWT is taken from the JWT issued at claim. By default, it is disabled.<br/>
+          Specifies the maximum allowed age of a JWT in seconds, regardless of expired claim. The age of the JWT is taken from the JWT issued at claim.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -967,7 +918,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td><b>security.jwt.allowed.skew</b></td>
         <td>integer</td>
         <td>
-          Specifies the maximum skew the JWT time claims are accepted. This is useful if the clock on the JWT issuer and ORDS differs by a few seconds. By default, it is disabled.<br/>
+          Specifies the maximum skew the JWT time claims are accepted. This is useful if the clock on the JWT issuer and ORDS differs by a few seconds.<br/>
           <br/>
             <i>Format</i>: int64<br/>
         </td>
@@ -977,8 +928,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>boolean</td>
         <td>
           Specifies whether the JWT Profile authentication is available. Supported values:<br/>
-          <br/>
-            <i>Default</i>: true<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -993,6 +942,8 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           Specifies a validation function to determine if the requested procedure in the URL should be allowed or disallowed for processing. The function should return true if the procedure is allowed; otherwise, return false.<br/>
+          <br/>
+            <i>Default</i>: ords_util.authorize_plsql_gateway<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1002,7 +953,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
           Indicates the type of security.requestValidationFunction: javascript or plsql.<br/>
           <br/>
             <i>Enum</i>: plsql, javascript<br/>
-            <i>Default</i>: plsql<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1010,8 +960,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           When using the SODA REST API, specifies the default number of documents returned for a GET request on a collection when a limit is not specified in the URL. Must be a positive integer, or "unlimited" for no limit.<br/>
-          <br/>
-            <i>Default</i>: 100<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1019,8 +967,6 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>string</td>
         <td>
           When using the SODA REST API, specifies the maximum number of documents that will be returned for a GET request on a collection URL, regardless of any limit specified in the URL. Must be a positive integer, or "unlimited" for no limit.<br/>
-          <br/>
-            <i>Default</i>: 1000<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -1039,7 +985,7 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
 
 
 
-Specifies the Secret with the dbUsername and dbPassword values for the connection.  Replaces:
+Specifies the Secret with the dbUsername and dbPassword values for the connection.
 
 <table>
     <thead>

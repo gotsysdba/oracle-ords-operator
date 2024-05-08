@@ -65,17 +65,15 @@ spec:
                   ORDS instance.
                 properties:
                   cache.metadata.enabled:
-                    default: false
                     description: Specifies the setting to enable or disable metadata
                       caching.
                     type: boolean
                   cache.metadata.graphql.expireAfterAccess:
-                    description: 'Specifies the duration after a GraphQL schema is
-                      not accessed from the cache that it expires. Default: 8h'
+                    description: Specifies the duration after a GraphQL schema is
+                      not accessed from the cache that it expires.
                     format: int64
                     type: integer
                   cache.metadata.jwks.enabled:
-                    default: true
                     description: Specifies the setting to enable or disable JWKS caching.
                     type: boolean
                   cache.metadata.jwks.expireAfterAccess:
@@ -84,8 +82,8 @@ spec:
                     format: int64
                     type: integer
                   cache.metadata.jwks.expireAfterWrite:
-                    description: 'Specifies the duration after a JWK is cached, that
-                      is, it expires and has to be loaded again. Default: 5m'
+                    description: Specifies the duration after a JWK is cached, that
+                      is, it expires and has to be loaded again.
                     format: int64
                     type: integer
                   cache.metadata.jwks.initialCapacity:
@@ -122,7 +120,6 @@ spec:
                     - secretName
                     type: object
                   database.api.enabled:
-                    default: false
                     description: Specifies whether the Database API is enabled.
                     type: boolean
                   database.api.management.services.disabled:
@@ -130,12 +127,11 @@ spec:
                       related services. Only applicable when Database API is enabled.
                     type: boolean
                   db.invalidPoolTimeout:
-                    description: 'Specifies how long to wait before retrying an invalid
-                      pool. Default: 15m'
+                    description: Specifies how long to wait before retrying an invalid
+                      pool.
                     format: int64
                     type: integer
                   debug.printDebugToScreen:
-                    default: false
                     description: Specifies whether to display error messages on the
                       browser.
                     type: boolean
@@ -145,14 +141,12 @@ spec:
                       If enabled, logs will be written to /opt/oracle/sa/log/global
                     type: boolean
                   error.responseFormat:
-                    default: auto
                     description: Specifies how the HTTP error responses must be formatted.
                       html - Force all responses to be in HTML format json - Force
                       all responses to be in JSON format auto - Automatically determines
                       most appropriate format for the request (default).
                     type: string
                   feature.grahpql.max.nesting.depth:
-                    default: 5
                     description: Specifies the maximum join nesting depth limit for
                       GraphQL queries.
                     format: int32
@@ -177,7 +171,6 @@ spec:
                       is required to have a value.
                     type: string
                   log.procedure:
-                    default: false
                     description: Specifies whether procedures are to be logged.
                     type: boolean
                   request.traceHeaderName:
@@ -187,18 +180,16 @@ spec:
                       header is commonly referred to as the ECID (Entity Context ID).
                     type: string
                   security.credentials.attempts:
-                    default: -1
                     description: Specifies the maximum number of unsuccessful password
                       attempts allowed. Enabled by setting a positive integer value.
                     format: int32
                     type: integer
                   security.credentials.lock.time:
-                    description: 'Specifies the period to lock the account that has
-                      exceeded maximum attempts. Default: 10m'
+                    description: Specifies the period to lock the account that has
+                      exceeded maximum attempts.
                     format: int64
                     type: integer
                   security.disableDefaultExclusionList:
-                    default: false
                     description: If this value is set to true, then the Oracle REST
                       Data Services internal exclusion list is not enforced. Oracle
                       recommends that you do not set this value to true.
@@ -212,7 +203,6 @@ spec:
                     description: Specifies to trust Access from originating domains
                     type: string
                   security.forceHTTPS:
-                    default: false
                     description: Specifies to force HTTPS; this is set to default
                       to false as in real-world TLS should terminiate at the LoadBalancer
                     type: boolean
@@ -227,14 +217,12 @@ spec:
                       a browser.
                     type: string
                   security.maxEntries:
-                    default: 2000
                     description: Specifies the maximum number of cached procedure
                       validations. Set this value to 0 to force the validation procedure
                       to be invoked on each request.
                     format: int32
                     type: integer
                   security.verifySSL:
-                    default: true
                     description: Specifies whether HTTPS is available in your environment.
                     type: boolean
                   standalone.context.path:
@@ -255,8 +243,8 @@ spec:
                     format: int32
                     type: integer
                   standalone.stop.timeout:
-                    description: 'Specifies the period for Standalone Mode to wait
-                      until it is gracefully shutdown. Default: 10s'
+                    description: Specifies the period for Standalone Mode to wait
+                      until it is gracefully shutdown.
                     format: int64
                     type: integer
                 type: object
@@ -291,16 +279,17 @@ spec:
                       default: false
                       description: Specify whether to perform APEX installation/upgrades
                         automatically The db.adminUser and db.adminUser.secret must
-                        be set, otherwise setting is ignored
+                        be set, otherwise setting is ignored This setting will be
+                        ignored for ADB
                       type: boolean
                     autoUpgradeORDS:
                       default: false
                       description: Specify whether to perform ORDS installation/upgrades
                         automatically The db.adminUser and db.adminUser.secret must
-                        be set, otherwise setting is ignored
+                        be set, otherwise setting is ignored This setting will be
+                        ignored for ADB
                       type: boolean
                     db.adminUser:
-                      default: SYS
                       description: Specifies the username for the database account
                         that ORDS uses for administration operations in the database.
                       type: string
@@ -322,7 +311,6 @@ spec:
                       - secretName
                       type: object
                     db.cdb.adminUser:
-                      default: ""
                       description: Specifies the username for the database account
                         that ORDS uses for the Pluggable Database Lifecycle Management.
                       type: string
@@ -351,7 +339,6 @@ spec:
                       - customurl
                       type: string
                     db.credentialsSource:
-                      default: pool
                       description: Specifies the source for database credentials when
                         creating a direct connection for running SQL statements. Value
                         can be one of pool or request. If the value is pool, then
@@ -371,9 +358,9 @@ spec:
                       description: Specifies the host system for the Oracle database.
                       type: string
                     db.poolDestroyTimeout:
-                      description: 'Indicates how long to wait to gracefully destroy
+                      description: Indicates how long to wait to gracefully destroy
                         a pool before moving to forcefully destroy all connections
-                        including borrowed ones. Default: 5m'
+                        including borrowed ones.
                       format: int64
                       type: integer
                     db.port:
@@ -381,8 +368,8 @@ spec:
                       format: int32
                       type: integer
                     db.secret:
-                      description: 'Specifies the Secret with the dbUsername and dbPassword
-                        values for the connection.  Replaces:'
+                      description: Specifies the Secret with the dbUsername and dbPassword
+                        values for the connection.
                       properties:
                         passwordKey:
                           default: password
@@ -395,11 +382,6 @@ spec:
                       required:
                       - secretName
                       type: object
-                    db.serviceNameSuffix:
-                      description: Specifies that the pool points to a CDB, and that
-                        the PDBs connected to that CDB should be made addressable
-                        by Oracle REST Data Services
-                      type: string
                     db.servicename:
                       description: Specifies the network service name of the database.
                       type: string
@@ -413,7 +395,10 @@ spec:
                     db.username:
                       default: ORDS_PUBLIC_USER
                       description: Specifies the name of the database user for the
-                        connection.
+                        connection. For non-ADB this will default to ORDS_PUBLIC_USER
+                        For ADBs this must be specified and not ORDS_PUBLIC_USER If
+                        ORDS_PUBLIC_USER is specified for an ADB, the workload will
+                        fail
                       type: string
                     db.wallet.zip.service:
                       description: Specifies the service name in the wallet archive
@@ -451,47 +436,40 @@ spec:
                         to exclude when initializing an Oracle Web Agent environment.
                       type: string
                     jdbc.DriverType:
-                      default: thin
                       description: Specifies the JDBC driver type.
                       enum:
                       - thin
                       - oci8
                       type: string
                     jdbc.InactivityTimeout:
-                      default: 1800
                       description: Specifies how long an available connection can
                         remain idle before it is closed. The inactivity connection
                         timeout is in seconds.
                       format: int32
                       type: integer
                     jdbc.InitialLimit:
-                      default: 10
                       description: Specifies the initial size for the number of connections
                         that will be created. The default is low, and should probably
                         be set higher in most production environments.
                       format: int32
                       type: integer
                     jdbc.MaxConnectionReuseCount:
-                      default: 1000
                       description: Specifies the maximum number of times to reuse
                         a connection before it is discarded and replaced with a new
                         connection.
                       format: int32
                       type: integer
                     jdbc.MaxLimit:
-                      default: 10
                       description: Specifies the maximum number of connections. Might
                         be too low for some production environments.
                       format: int32
                       type: integer
                     jdbc.MaxStatementsLimit:
-                      default: 10
                       description: Specifies the maximum number of statements to cache
                         for each connection.
                       format: int32
                       type: integer
                     jdbc.MinLimit:
-                      default: 2
                       description: Specifies the minimum number of connections.
                       format: int32
                       type: integer
@@ -500,7 +478,6 @@ spec:
                         the database user must get the SQL Administrator role.
                       type: string
                     jdbc.auth.enabled:
-                      default: false
                       description: Specifies if the PL/SQL Gateway calls can be authenticated
                         using database users. If the value is true then this feature
                         is enabled. If the value is false, then this feature is disabled.
@@ -508,12 +485,10 @@ spec:
                         only to facilitate customers migrating from mod_plsql.
                       type: boolean
                     jdbc.cleanup.mode:
-                      default: RECYCLE
                       description: Specifies how a pooled JDBC connection and corresponding
                         database session, is released when a request has been processed.
                       type: string
                     jdbc.statementTimeout:
-                      default: 900
                       description: Specifies a timeout period on a statement. An abnormally
                         long running query or script, executed by a request, may leave
                         it in a hanging state unless a timeout is set on the statement.
@@ -527,7 +502,6 @@ spec:
                         REST Data Services Landing Page.
                       type: string
                     misc.pagination.maxRows:
-                      default: 10000
                       description: Specifies the maximum number of rows that will
                         be returned from a query when processing a RESTful service
                         and that will be returned from a nested cursor in a result
@@ -576,18 +550,17 @@ spec:
                         names must be separated by commas.
                       type: string
                     restEnabledSql.active:
-                      default: false
                       description: Specifies whether the REST-Enabled SQL service
                         is active.
                       type: boolean
                     security.jwks.connection.timeout:
-                      description: 'Specifies the maximum amount of time before timing-out
-                        when accessing a JWK url. Default: 5s'
+                      description: Specifies the maximum amount of time before timing-out
+                        when accessing a JWK url.
                       format: int64
                       type: integer
                     security.jwks.read.timeout:
-                      description: 'Specifies the maximum amount of time reading a
-                        response from the JWK url before timing-out. Default: 5s'
+                      description: Specifies the maximum amount of time reading a
+                        response from the JWK url before timing-out.
                       format: int64
                       type: integer
                     security.jwks.refresh.interval:
@@ -596,7 +569,6 @@ spec:
                       format: int64
                       type: integer
                     security.jwks.size:
-                      default: 100000
                       description: Specifies the maximum number of bytes read from
                         the JWK url.
                       format: int32
@@ -604,17 +576,16 @@ spec:
                     security.jwt.allowed.age:
                       description: Specifies the maximum allowed age of a JWT in seconds,
                         regardless of expired claim. The age of the JWT is taken from
-                        the JWT issued at claim. By default, it is disabled.
+                        the JWT issued at claim.
                       format: int64
                       type: integer
                     security.jwt.allowed.skew:
                       description: Specifies the maximum skew the JWT time claims
                         are accepted. This is useful if the clock on the JWT issuer
-                        and ORDS differs by a few seconds. By default, it is disabled.
+                        and ORDS differs by a few seconds.
                       format: int64
                       type: integer
                     security.jwt.profile.enabled:
-                      default: true
                       description: 'Specifies whether the JWT Profile authentication
                         is available. Supported values:'
                       type: boolean
@@ -627,13 +598,13 @@ spec:
                         WWW-Authenticate in the response header.
                       type: string
                     security.requestValidationFunction:
+                      default: ords_util.authorize_plsql_gateway
                       description: Specifies a validation function to determine if
                         the requested procedure in the URL should be allowed or disallowed
                         for processing. The function should return true if the procedure
                         is allowed; otherwise, return false.
                       type: string
                     security.validationFunctionType:
-                      default: plsql
                       description: 'Indicates the type of security.requestValidationFunction:
                         javascript or plsql.'
                       enum:
@@ -641,14 +612,12 @@ spec:
                       - javascript
                       type: string
                     soda.defaultLimit:
-                      default: "100"
                       description: When using the SODA REST API, specifies the default
                         number of documents returned for a GET request on a collection
                         when a limit is not specified in the URL. Must be a positive
                         integer, or "unlimited" for no limit.
                       type: string
                     soda.maxLimit:
-                      default: "1000"
                       description: When using the SODA REST API, specifies the maximum
                         number of documents that will be returned for a GET request
                         on a collection URL, regardless of any limit specified in
@@ -667,7 +636,6 @@ spec:
                       type: object
                   required:
                   - db.secret
-                  - db.username
                   - poolName
                   type: object
                 type: array

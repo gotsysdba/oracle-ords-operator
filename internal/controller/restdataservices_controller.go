@@ -43,6 +43,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -165,7 +166,11 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// ConfigMap - Pool Settings
 	definedPools := make(map[string]bool)
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
-		poolConfigMapName := ords.Name + "-" + poolConfigPreName + strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
+		poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
+		poolConfigMapName := ords.Name + "-" + poolConfigPreName + poolName
+		if definedPools[poolConfigMapName] {
+			return ctrl.Result{}, errors.New("poolName: " + poolName + " is not unique")
+		}
 		definedPools[poolConfigMapName] = true
 		if err := r.ConfigMapReconcile(ctx, ords, poolConfigMapName, i); err != nil {
 			logr.Error(err, "Error in ConfigMapReconcile (Pools)")
@@ -180,6 +185,14 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Error(err, "Failed to re-fetch")
 		return ctrl.Result{}, err
 	}
+
+	// // Secrets - Pool Settings
+	// for i := 0; i < len(ords.Spec.PoolSettings); i++ {
+	// 	if err := r.SecretsReconcile(ctx, ords, i); err != nil {
+	// 		logr.Error(err, "Error in SecretsReconcile (Pools)")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
 
 	// Set the Type as Unsynced when a pod restart is required
 	if RestartPods {
@@ -205,7 +218,7 @@ func (r *RestDataServicesReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Service
 	if err := r.ServiceReconcile(ctx, ords); err != nil {
-		logr.Error(err, "Error in WorkloadReconcile")
+		logr.Error(err, "Error in ServiceReconcile")
 		return ctrl.Result{}, err
 	}
 
@@ -291,7 +304,7 @@ func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Req
  *************************************************/
 func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ords *databasev1.RestDataServices, configMapName string, poolIndex int) (err error) {
 	logr := log.FromContext(ctx).WithName("ConfigMapReconcile")
-	desiredConfigMap := r.ConfigMapDefine(ctx, ords, configMapName, 0)
+	desiredConfigMap := r.ConfigMapDefine(ctx, ords, configMapName, poolIndex)
 
 	// Create if ConfigMap not found
 	definedConfigMap := &corev1.ConfigMap{}
@@ -319,9 +332,43 @@ func (r *RestDataServicesReconciler) ConfigMapReconcile(ctx context.Context, ord
 		RestartPods = true
 		r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "ConfigMap %s Updated", configMapName)
 	}
-
 	return nil
 }
+
+/************************************************
+ * Secrets - TODO (Watch and set RestartPods)
+ *************************************************/
+// func (r *RestDataServicesReconciler) SecretsReconcile(ctx context.Context, ords *databasev1.RestDataServices, poolIndex int) (err error) {
+// 	logr := log.FromContext(ctx).WithName("SecretsReconcile")
+// 	definedSecret := &corev1.Secret{}
+
+// 	// Want to set ownership on the Secret for watching; also detects if TNS_ADMIN is needed.
+// 	if ords.Spec.PoolSettings[i].DBSecret != nil {
+// 	}
+// 	if ords.Spec.PoolSettings[i].DBAdminUserSecret != nil {
+// 	}
+// 	if ords.Spec.PoolSettings[i].DBCDBAdminUserSecret != nil {
+// 	}
+// 	if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
+// 	}
+// 	if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
+// 	}
+
+// 	if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
+// 		tnsSecretName := ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName
+// 		definedSecret := &corev1.Secret{}
+// 		if err = r.Get(ctx, types.NamespacedName{Name: tnsSecretName, Namespace: ords.Namespace}, definedSecret); err != nil {
+// 			ojdbcPropertiesData, ok := secret.Data["ojdbc.properties"]
+// 			if ok {
+// 				if err = r.Update(ctx, desiredConfigMap); err != nil {
+// 					return err
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 /************************************************
  * Workloads
@@ -409,7 +456,6 @@ func (r *RestDataServicesReconciler) WorkloadReconcile(ctx context.Context, req 
 		}
 	}
 
-	logr.Info("Comparing Desired Spec (" + desiredSpecHash + ") with Defined Spec (" + definedSpecHash + ")")
 	if desiredSpecHash != definedSpecHash {
 		logr.Info("Syncing Workload " + kind + " with new configuration")
 		if err := r.Client.Update(ctx, desiredWorkload); err != nil {
@@ -532,10 +578,9 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 					Name:            ords.Name + "-init",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: securityContextDefine(),
-					//Command:         []string{"sh", "-c", "tail -f /dev/null"},
-					Command:      []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
-					Env:          envDefine(ords, true),
-					VolumeMounts: specVolumeMounts,
+					Command:         []string{"sh", "-c", ordsSABase + "/bin/init_script.sh"},
+					Env:             envDefine(ords, true),
+					VolumeMounts:    specVolumeMounts,
 				}},
 				Containers: []corev1.Container{{
 					Image:           ords.Spec.Image,
@@ -553,7 +598,7 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 						},
 					},
 					//Command: []string{"sh", "-c", "tail -f /dev/null"},
-					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images"},
+					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images --debug"},
 					Env:          envDefine(ords, false),
 					VolumeMounts: specVolumeMounts,
 				}}},
@@ -569,59 +614,76 @@ func VolumesDefine(ords *databasev1.RestDataServices) ([]corev1.Volume, []corev1
 
 	// SecretHelper
 	secretHelperVolume := volumeBuild(ords.Name+"-"+"init-script", "ConfigMap", 0770)
-	volumes = append(volumes, secretHelperVolume)
 	secretHelperVolumeMount := volumeMountBuild(ords.Name+"-"+"init-script", ordsSABase+"/bin", true)
+
+	volumes = append(volumes, secretHelperVolume)
 	volumeMounts = append(volumeMounts, secretHelperVolumeMount)
 
 	// Build volume specifications for globalSettings
 	standaloneVolume := volumeBuild("standalone", "EmptyDir")
+	standaloneVolumeMount := volumeMountBuild("standalone", ordsSABase+"/config/global/standalone/", false)
+
 	globalWalletVolume := volumeBuild("sa-wallet-global", "EmptyDir")
+	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsSABase+"/config/global/wallet/", false)
+
 	globalLogVolume := volumeBuild("sa-log-global", "EmptyDir")
+	globalLogVolumeMount := volumeMountBuild("sa-log-global", ordsSABase+"/log/global/", false)
+
 	globalConfigVolume := volumeBuild(ords.Name+"-"+globalConfigMapName, "ConfigMap")
-	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume)
+	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", true)
+
+	globalDocRootVolume := volumeBuild("sa-doc-root", "EmptyDir")
+	globalDocRootVolumeMount := volumeMountBuild("sa-doc-root", ordsSABase+"/config/global/doc_root/", false)
+
+	volumes = append(volumes, standaloneVolume, globalWalletVolume, globalLogVolume, globalConfigVolume, globalDocRootVolume)
+	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount, globalDocRootVolumeMount)
+
 	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolume := volumeBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, "Secret")
-		volumes = append(volumes, globalCertVolume)
-	}
-
-	standaloneVolumeMount := volumeMountBuild("standalone", ordsSABase+"/config/global/standalone/", false)
-	globalWalletVolumeMount := volumeMountBuild("sa-wallet-global", ordsSABase+"/config/global/wallet/", false)
-	globalLogVolumeMount := volumeMountBuild("sa-log-global", ordsSABase+"/log/global/", false)
-	globalConfigVolumeMount := volumeMountBuild(ords.Name+"-"+globalConfigMapName, ordsSABase+"/config/global/", false)
-	volumeMounts = append(volumeMounts, standaloneVolumeMount, globalWalletVolumeMount, globalLogVolumeMount, globalConfigVolumeMount)
-	if ords.Spec.GlobalSettings.CertSecret != nil {
 		globalCertVolumeMount := volumeMountBuild(ords.Spec.GlobalSettings.CertSecret.SecretName, ordsSABase+"/config/certficate/", true)
+
+		volumes = append(volumes, globalCertVolume)
 		volumeMounts = append(volumeMounts, globalCertVolumeMount)
 	}
 
 	// Build volume specifications for each pool in poolSettings
+	definedWalletSecret := make(map[string]bool)
+	definedTNSSecret := make(map[string]bool)
 	for i := 0; i < len(ords.Spec.PoolSettings); i++ {
 		poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
-		poolConfigName := ords.Name + "-" + poolConfigPreName + poolName
-		poolWalletName := "sa-wallet-" + poolName
-		// Volumes
-		poolWalletVolume := volumeBuild(poolWalletName, "EmptyDir")
-		poolConfigVolume := volumeBuild(poolConfigName, "ConfigMap")
-		volumes = append(volumes, poolWalletVolume, poolConfigVolume)
-		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
-			poolDBWalletVolume := volumeBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, "Secret")
-			volumes = append(volumes, poolDBWalletVolume)
-		}
-		if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
-			poolTNSAdminVolume := volumeBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, "Secret")
-			volumes = append(volumes, poolTNSAdminVolume)
-		}
 
-		// The folder named databases/<pool-name>/wallet/ contains an Oracle auto login wallet that contains the credentials for the database pool
+		poolWalletName := "sa-wallet-" + poolName
+		poolWalletVolume := volumeBuild(poolWalletName, "EmptyDir")
 		poolWalletVolumeMount := volumeMountBuild(poolWalletName, ordsSABase+"/config/databases/"+poolName+"/wallet/", false)
-		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", false)
+
+		poolConfigName := ords.Name + "-" + poolConfigPreName + poolName
+		poolConfigVolume := volumeBuild(poolConfigName, "ConfigMap")
+		poolConfigVolumeMount := volumeMountBuild(poolConfigName, ordsSABase+"/config/databases/"+poolName+"/", true)
+
+		volumes = append(volumes, poolWalletVolume, poolConfigVolume)
 		volumeMounts = append(volumeMounts, poolWalletVolumeMount, poolConfigVolumeMount)
+
 		if ords.Spec.PoolSettings[i].DBWalletSecret != nil {
-			poolDBWalletVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].DBWalletSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
+			walletSecretName := ords.Spec.PoolSettings[i].DBWalletSecret.SecretName
+			if !definedWalletSecret[walletSecretName] {
+				// Only create the volume once
+				poolDBWalletVolume := volumeBuild(walletSecretName, "Secret")
+				volumes = append(volumes, poolDBWalletVolume)
+				definedWalletSecret[walletSecretName] = true
+			}
+			poolDBWalletVolumeMount := volumeMountBuild(walletSecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
 			volumeMounts = append(volumeMounts, poolDBWalletVolumeMount)
 		}
+
 		if ords.Spec.PoolSettings[i].TNSAdminSecret != nil {
-			poolTNSAdminVolumeMount := volumeMountBuild(ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
+			tnsSecretName := ords.Spec.PoolSettings[i].TNSAdminSecret.SecretName
+			if !definedTNSSecret[tnsSecretName] {
+				// Only create the volume once
+				poolTNSAdminVolume := volumeBuild(tnsSecretName, "Secret")
+				volumes = append(volumes, poolTNSAdminVolume)
+				definedTNSSecret[tnsSecretName] = true
+			}
+			poolTNSAdminVolumeMount := volumeMountBuild(tnsSecretName, ordsSABase+"/config/databases/"+poolName+"/network/admin/", true)
 			volumeMounts = append(volumeMounts, poolTNSAdminVolumeMount)
 		}
 	}
@@ -728,6 +790,15 @@ func envDefine(ords *databasev1.RestDataServices, initContainer bool) []corev1.E
 			Value: ordsSABase + "/config",
 		},
 	}
+	// Limitation case for ADB/mTLS/OraOper edge
+	if len(ords.Spec.PoolSettings) == 1 {
+		poolName := strings.ToLower(ords.Spec.PoolSettings[0].PoolName)
+		tnsAdmin := corev1.EnvVar{
+			Name:  "TNS_ADMIN",
+			Value: ordsSABase + "/config/databases/" + poolName + "/network/admin/",
+		}
+		envVarSecrets = append(envVarSecrets, tnsAdmin)
+	}
 	if initContainer {
 		for i := 0; i < len(ords.Spec.PoolSettings); i++ {
 			poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
@@ -742,11 +813,7 @@ func envDefine(ords *databasev1.RestDataServices, initContainer bool) []corev1.E
 					},
 				},
 			}
-			tnsAdmin := corev1.EnvVar{
-				Name:  "TNS_ADMIN",
-				Value: ordsSABase + "/config/databases/" + poolName + "/network/admin/",
-			}
-			envVarSecrets = append(envVarSecrets, dbSecret, tnsAdmin)
+			envVarSecrets = append(envVarSecrets, dbSecret)
 			if ords.Spec.PoolSettings[i].DBAdminUserSecret.SecretName != "" {
 				autoUpgradeORDSEnv := corev1.EnvVar{
 					Name:  poolName + "_autoupgrade_ords",

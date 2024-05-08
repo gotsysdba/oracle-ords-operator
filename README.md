@@ -2,6 +2,8 @@
 
 This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
+Your evaluation and [Feedback](issues/new?labels=feedback&title=New+Feedback) is appreciated.
+
 ## Description
 
 The ORDS Operator extends the Kubernetes API with custom resources and controllers for automating Oracle Rest Data
@@ -13,74 +15,43 @@ into an existing Kubernetes cluster.
 The custom RestDataServices resource supports the following configurations as either a Deployment, StatefulSet, or DaemonSet:
 
 * Single RestDataServices resource with one database pool
-* Single RestDataServices resource with multiple database pools
+* Single RestDataServices resource with multiple database pools<sup>*</sup>
 * Multiple RestDataServices resources, each with one database pool
-* Multiple RestDataServices resources, each with multiple database pools
+* Multiple RestDataServices resources, each with multiple database pools<sup>*</sup>
 
 It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md)
 
-The ORDS and APEX schemas can be automatically installed/upgraded into the database by the ORDS Operator.
+The ORDS and APEX schemas can be [automatically installed/upgraded](docs/autoupgrade.md) into the Oracle Database by the ORDS Operator.
 
-### Prerequisites
-- go version v1.20.0+
-- docker/podman version 17.03+. (for podman, make sure the docker command is aliased to podman)
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+<sup>*See [Limitations](#limitations)</sup>
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+### Quick Installation
 
-```sh
-make docker-build docker-push IMG=<some-registry>/oracle-ords-operator:tag
+To install the ORDS Operator, run:
+
+```bash
+kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/latest/download/oracle-ords-operator.yaml
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.  And it is required to have access to pull the image from the working environment.  Make sure you have the proper permission to the registry if the above commands don’t work.
+This will create a new namespace, `oracle-ords-operator-system`, in which the Controller will run.
 
-**Install the CRDs into the cluster:**
+### Common Configurations
 
-```sh
-make install
-```
+A few common configuration examples can be used to quickly familiarise yourself with the ORDS Custom Resource Definition.
+The "Conclusion" section of each example highlights specific settings to enable functionality that maybe of interest.
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+* [Containerised Single Instance Database using the OraOperator](docs/examples/sidb_container.md)
+* [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) <sup>*See [Limitations](#limitations)</sup>
+* [Autonomous Database without the OraOperator](docs/examples/adb.md)
+* [Multipool, Multidatabase using a TNS Names file](docs/example/multi_pool.md)
 
-```sh
-make deploy IMG=<some-registry>/oracle-ords-operator:tag
-```
+Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin privileges or be logged in as admin.
+If you have a specific use-case that is not covered and would like it to be, please open an [Enhancement Request](issues/new?labels=enhancement) or feel free to contribute it via a Pull Request.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+### Limitations
 
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+When connecting to a mTLS enabled ADB and using the OraOperator to retreive the Wallet, it is currently not supported to have multiple, different databases supported by the single RestDataServices resource.  This is due to a requirement to set the `TNS_ADMIN` parameter at the Pod level ([#97](https://github.com/oracle/oracle-database-operator/issues/97)).
 
 ## Contributing
 See [Contributing to this Repository](./CONTRIBUTING.md)
@@ -93,4 +64,3 @@ See [Reporting security vulnerabilities](./SECURITY.md)
 
 Copyright (c) 2024 Oracle and/or its affiliates.
 Released under the Universal Permissive License v1.0 as shown at [https://oss.oracle.com/licenses/upl/](https://oss.oracle.com/licenses/upl/)
-
