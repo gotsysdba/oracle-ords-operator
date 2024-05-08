@@ -34,6 +34,9 @@ get_conn_string() {
 	if [[ -n ${_conn} ]]; then
 		echo "Connection String (${_conn_type}): ${_conn}"
 		_conn_string="${_admin_user%%/ *}/${config["dbadminusersecret"]}@${_conn}"
+		if [[ ${_admin_user%%/ *} == "SYS" ]]; then
+			_conn_string="${_conn_string=} AS SYSDBA"
+		fi
 	fi
 }
 
@@ -47,16 +50,18 @@ function run_sql {
 	if [[ -z ${_sql} ]]; then
 		echo "FATAL: Dear Developer.. you've got a bug calling run_sql" && exit 1
 	fi
-	local -r tns_admin=$($ords_cfg_cmd get db.tnsDirectory | tail -1)
-	if [[ -n $tns_admin ]]; then
-		export TNS_ADMIN=${tns_admin}
+	## Get TNS_ADMIN location
+	local -r _tns_admin=$($ords_cfg_cmd get db.tnsDirectory | tail -1)
+	if [[ ! $_tns_admin =~ "Cannot get setting" ]]; then
+		echo "Setting: TNS_ADMIN=${_tns_admin}"
+		export TNS_ADMIN=${_tns_admin}
 	fi
 
 	## Get ADB Wallet
-	local -r wallet_zip_path=$($ords_cfg_cmd get db.wallet.zip.path | tail -1)
-	if [[ -n $wallet_zip_path ]]; then
-		echo "Using: set cloudconfig ${wallet_zip_path}"
-		local -r cloudconfig="set cloudconfig ${wallet_zip_path}"
+	local -r _wallet_zip_path=$($ords_cfg_cmd get db.wallet.zip.path | tail -1)
+	if [[ ! $_wallet_zip_path =~ "Cannot get setting" ]]; then
+		echo "Using: set cloudconfig ${_wallet_zip_path}"
+		local -r _cloudconfig="set cloudconfig ${_wallet_zip_path}"
 	fi
 
 	# NOTE to maintainer; the heredoc must be TAB indented
@@ -65,7 +70,7 @@ function run_sql {
 	_output=$(cd ${APEX_HOME}/${APEX_VER} && sql -S -nohistory -noupdates /nolog <<-EOSQL
 		WHENEVER SQLERROR EXIT 1
 		WHENEVER OSERROR EXIT 1
-		${cloudconfig}
+		${_cloudconfig}
 		connect $_conn_string
 		set serveroutput on echo off pause off feedback off
 		set heading off wrap off linesize 1000 pagesize 0
@@ -98,7 +103,11 @@ function check_adb() {
 	_rc=$?
 
 	if (( ${_rc} == 0 )); then
-		_is_adb=${_adb_check//[[:space:]]/}
+		_adb_check=${_adb_check//[[:space:]]/}
+		echo "ADB Check: ${_adb_check}"
+		if (( ${_adb_check} == 1 )); then
+			_is_adb=${_adb_check//[[:space:]]/}
+		fi
 	fi
 
 	return ${_rc}
@@ -212,6 +221,7 @@ set_secret() {
 		echo "${_config_key} in pool ${_pool_name} set"
 	else
 		echo "${_config_key} in pool ${_pool_name}, not defined"
+		_rc=0
 	fi
 
 	return ${_rc}
@@ -326,6 +336,7 @@ apex_password() {
 #------------------------------------------------------------------------------
 declare -A pool_exit
 for pool in "$ORDS_CONFIG"/databases/*; do
+	rc=0
 	pool_name=$(basename "$pool")
 	pool_exit[${pool_name}]=0
 	ords_cfg_cmd="ords --config $ORDS_CONFIG config --db-pool ${pool_name}"
@@ -346,7 +357,7 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 	set_secret "${pool_name}" "db.cdb.adminUser.password" "${config["dbcdbadminusersecret"]}" "true"
 	rc=$((rc + $?))
 
-	if (( rc > 0 )); then
+	if (( ${rc} > 0 )); then
 		echo "FATAL: Unable to set configuration for pool ${pool_name}"
 		pool_exit[${pool_name}]=1
 		continue
@@ -378,7 +389,6 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 		echo "Processing ADB in Pool: ${pool_name}"
 		create_adb_user "${conn_string}" "${pool_name}"
 	else
-		conn_string="${conn_string}  AS SYSDBA"
 		# ORDS Upgrade
 		declare -r ords_upgrade_var=${pool_name}_autoupgrade_ords
 		if [[ ${!ords_upgrade_var} != "true" ]]; then

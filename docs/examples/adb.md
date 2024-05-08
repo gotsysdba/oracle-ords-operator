@@ -34,13 +34,13 @@ kubectl create secret generic adb-wallet \
 Create a Secret for the ADB Admin password, replacing `<admin_password>` with the real ADMIN password:
 
 ```bash
-kubectl create secret generic db-auth \
+kubectl create secret generic adb-db-auth \
   --from-literal=password=<admin_password>
 ```
 
 For example:
 ```bash
-kubectl create secret generic db-auth \
+kubectl create secret generic adb-db-auth \
   --from-literal=password=horse-battery-staple
 ```
 
@@ -56,14 +56,13 @@ kubectl create secret generic db-auth \
     apiVersion: database.oracle.com/v1
     kind: RestDataServices
     metadata:
-      name: ordspoc-server
+      name: ordspoc-adb
     spec:
       image: container-registry.oracle.com/database/ords:23.4.0
-      forceRestart: true
       globalSettings:
         database.api.enabled: true
       poolSettings:
-        - poolName: ORDSPOC
+        - poolName: adb
           db.wallet.zip.service: adbpoc_tp
           dbWalletSecret:
             secretName:  adb-wallet
@@ -73,23 +72,18 @@ kubectl create secret generic db-auth \
           plsql.gateway.mode: proxied
           db.username: ORDS_PUBLIC_USER_OPER
           db.secret:
-            secretName:  db-auth
+            secretName:  adb-db-auth
             passwordKey: password
           db.adminUser: ADMIN
           db.adminUser.secret:
-            secretName:  db-auth
+            secretName:  adb-db-auth
             passwordKey: password" | kubectl apply -f -
     ```
     <sup>24.1.0 cannot be used due to a image ENV issue</sup>
 
-1. Apply the Container Oracle Database manifest:
-    ```bash
-    kubectl apply -f ordspoc-server.yaml
-    ```
-
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
-    kubectl get restdataservices ordspoc-server -w
+    kubectl get restdataservices ordspoc-adb -w
     ```
 
     **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  If APEX
@@ -101,7 +95,18 @@ kubectl create secret generic db-auth \
 Open a port-forward to the ORDS service, for example:
 
 ```bash
-kubectl port-forward service/ordspoc-server 8443:8443
+kubectl port-forward service/ordspoc-adb 8443:8443
 ```
 
-Direct your browser to: `https://localhost:8443/ords/ordspoc`
+Direct your browser to: `https://localhost:8443/ords/adb`
+
+## Conclusion
+
+This example has a single database pool, named `adb`.  It is set to:
+
+* Not automatically restart when the configuration changes: `forceRestart` is not set.  
+  The pod must be manually resarted for new configurations to be picked-up.
+* Automatically install/update ORDS on startup, if required.  This occurs due to the database being detected as an ADB.
+* Automatically install/update APEX on startup, if required: This occurs due to the database being detected as an ADB.
+* The ADB `ADMIN` user will be used to connect the ADB to install APEX/ORDS
+* Use the ADB Wallet file to connect to the database: `db.wallet.zip.service: adbpoc_tp` and `dbWalletSecret`
