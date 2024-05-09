@@ -2,7 +2,7 @@
 
 This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
-Your evaluation and [Feedback](issues/new?labels=feedback&title=New+Feedback) is appreciated.
+Your evaluation and [Feedback](../../issues/new?labels=feedback&title=New+Feedback) is appreciated.
 
 ## Description
 
@@ -19,11 +19,18 @@ The custom RestDataServices resource supports the following configurations as ei
 * Multiple RestDataServices resources, each with one database pool
 * Multiple RestDataServices resources, each with multiple database pools<sup>*</sup>
 
-It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md)
+It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md).
 
 The ORDS and APEX schemas can be [automatically installed/upgraded](docs/autoupgrade.md) into the Oracle Database by the ORDS Operator.
 
 <sup>*See [Limitations](#limitations)</sup>
+
+ORDS Version support: 
+* v22.1+
+
+Oracle Database Version: 
+* 19c
+* 23ai (incl. 23ai Free)
 
 ### Quick Installation
 
@@ -43,11 +50,11 @@ The "Conclusion" section of each example highlights specific settings to enable 
 * [Containerised Single Instance Database using the OraOperator](docs/examples/sidb_container.md)
 * [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) <sup>*See [Limitations](#limitations)</sup>
 * [Autonomous Database without the OraOperator](docs/examples/adb.md)
-* [Multipool, Multidatabase using a TNS Names file](docs/example/multi_pool.md)
+* [Multipool, Multidatabase using a TNS Names file](docs/examples/multi_pool.md)
 
 Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 
-If you have a specific use-case that is not covered and would like it to be, please open an [Enhancement Request](issues/new?labels=enhancement) or feel free to contribute it via a Pull Request.
+If you have a specific use-case that is not covered and would like it to be, please open an [Enhancement Request](../../issues/new?labels=enhancement) or feel free to contribute it via a Pull Request.
 
 ### Limitations
 

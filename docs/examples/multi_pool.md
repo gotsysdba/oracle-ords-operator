@@ -1,6 +1,8 @@
-# Example
+# Example: Multipool, Multidatabase using a TNS Names file
 
 This example walks through using the **ORDS Operator** with multiple databases using a TNS Names file.  
+Keep in mind all pools are running in the same pod, changing the configuration of one pool will require
+an outage of all pools for that configuration to be implemented.
 
 ### Install ORDS Operator
 
@@ -29,6 +31,13 @@ kubectl create secret generic multi-tns-admin \
 
 In this example, 4 PDBs will be connected to and the example `tnsnames.ora` file contents are as below:
 ```text
+PDB1=(DESCRIPTION=(ADDRESS_LIST=(LOAD_BALANCE=on)(ADDRESS=(PROTOCOL=TCP)(HOST=10.10.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=PDB1)))
+
+PDB2=(DESCRIPTION=(ADDRESS_LIST=(LOAD_BALANCE=on)(ADDRESS=(PROTOCOL=TCP)(HOST=10.10.0.2)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=PDB2)))
+
+PDB3=(DESCRIPTION=(ADDRESS_LIST=(LOAD_BALANCE=on)(ADDRESS=(PROTOCOL=TCP)(HOST=10.10.0.3)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=PDB3)))
+
+PDB4=(DESCRIPTION=(ADDRESS_LIST=(LOAD_BALANCE=on)(ADDRESS=(PROTOCOL=TCP)(HOST=10.10.0.4)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=PDB4)))
 ```
 
 ### ORDS_PUBLIC_USER Secret
@@ -74,7 +83,7 @@ kubectl create secret generic pdb1-priv-auth \
     apiVersion: database.oracle.com/v1
     kind: RestDataServices
     metadata:
-      name: ordspoc-multi
+      name: ords-multi-pool
     spec:
       image: container-registry.oracle.com/database/ords:23.4.0
       forceRestart: true
@@ -135,19 +144,19 @@ kubectl create secret generic pdb1-priv-auth \
 
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
-    kubectl get restdataservices ordspoc-multi -w
+    kubectl get restdataservices ords-multi-pool -w
     ```
 
-    **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  If APEX
-    is being installed for the first time by the Operator, it may remain in the **Preparing** 
-    status for an additional 5 minutes.
+    **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  As APEX
+    is being installed for the first time by the Operator into PDB1, it will remain in the **Preparing** 
+    status for an additional 5-10 minutes.
 
 ### Test
 
 Open a port-forward to the ORDS service, for example:
 
 ```bash
-kubectl port-forward service/ordspoc-multi 8443:8443
+kubectl port-forward service/ords-multi-pool 8443:8443
 ```
 
 1. For PDB1, direct your browser to: `https://localhost:8443/ords/pdb1`

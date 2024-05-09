@@ -31,7 +31,7 @@ FROM container-registry.oracle.com/os/oraclelinux:9-slim
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY internal/controller/ords_init.sh .
-RUN useradd -u 1001 nonroot
-USER 1001:1001
+RUN useradd -u 10001 nonroot
+USER 10001:10001
 
 ENTRYPOINT ["/manager"]
