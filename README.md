@@ -18,6 +18,7 @@ The custom RestDataServices resource supports the following configurations as a 
 * Single RestDataServices resource with multiple database pools<sup>*</sup>
 * Multiple RestDataServices resources, each with one database pool
 * Multiple RestDataServices resources, each with multiple database pools<sup>*</sup>
+
 <sup>*See [Limitations](#limitations)</sup>
 
 It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md).
