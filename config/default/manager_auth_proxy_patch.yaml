@@ -11,6 +11,9 @@ spec:
       containers:
       - name: kube-rbac-proxy
         securityContext:
+          runAsUser: 10001
+          runAsGroup: 10001
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           capabilities:
             drop:

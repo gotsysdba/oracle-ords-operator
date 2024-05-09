@@ -1,4 +1,4 @@
-# Example
+# Example: Autonomous Database using the OraOperator
 
 This example walks through using the **ORDS Operator** with a Containerised Oracle Database created by the **OraOperator** in the same Kubernetes Cluster.
 
@@ -56,17 +56,13 @@ kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/late
 
 ### ADB ADMIN Password Secret
 
-Create a Secret for the ADB Admin password, replacing `<admin_password>` with a real password:
+Create a Secret for the ADB Admin password:
 
 ```bash
-kubectl create secret generic adb-oraoper-password \
-  --from-literal=adb-oraoper-password=<admin_password>
-```
+DB_PWD=$(echo "ORDSpoc_$(date +%H%S%M)")
 
-For example:
-```bash
-kubectl create secret generic adb-oraoper-password \
-  --from-literal=adb-oraoper-password=horse-battery-staple
+kubectl create secret generic adb-oraoper-db-auth \
+  --from-literal=adb-oraoper-db-auth=${DB_PWD}
 ```
 
 **NOTE**: When binding to the ADB in a later step, the OraOperator will change the ADB password to what is specified in the Secret.
@@ -94,17 +90,33 @@ kubectl create secret generic adb-oraoper-password \
         secretName: oci-privatekey
       details:
         autonomousDatabaseOCID: $ADB_OCID
-        adminPassword:
-          k8sSecret:
-            name: adb-oraoper-password
         wallet:
           name: adb-oraoper-tns-admin
           password:
             k8sSecret:
-              name: adb-oraoper-password" | kubectl apply -f -
+              name: adb-oraoper-db-auth" | kubectl apply -f -
+    ```
+
+1. Update the ADMIN Password:
+
+```bash
+  kubectl patch adb adb-oraoper --type=merge \
+    -p '{"spec":{"details":{"adminPassword":{"k8sSecret":{"name":"adb-oraoper-db-auth"}}}}}'
+```
+
+1. Watch the `adb` resource until the STATE is **AVAILABLE**:
+
+    ```bash
+    kubectl get adb/adb-oraoper -w
     ```
 
 ### Create RestDataServices Resource
+
+1. Obtain the Service Name from the OraOperator
+
+  ```bash
+  SERVICE_NAME=$(kubectl get adb adb-oraoper -o=jsonpath='{.spec.details.dbName}'_TP)
+  ```
 
 1. Create a manifest for ORDS.
 
@@ -116,7 +128,7 @@ kubectl create secret generic adb-oraoper-password \
     apiVersion: database.oracle.com/v1
     kind: RestDataServices
     metadata:
-      name: ordspoc-adb-oraoper
+      name: ords-adb-oraoper
     spec:
       image: container-registry.oracle.com/database/ords:23.4.0
       forceRestart: true
@@ -125,7 +137,7 @@ kubectl create secret generic adb-oraoper-password \
       poolSettings:
         - poolName: adb-oraoper
           db.connectionType: tns
-          db.tnsAliasName: adbpoc_tp
+          db.tnsAliasName: $SERVICE_NAME
           tnsAdminSecret:
             secretName: adb-oraoper-tns-admin
           restEnabledSql.active: true
@@ -133,18 +145,18 @@ kubectl create secret generic adb-oraoper-password \
           plsql.gateway.mode: proxied
           db.username: ORDS_PUBLIC_USER_OPER
           db.secret:
-            secretName:  adb-oraoper-password
-            passwordKey: adb-oraoper-password
+            secretName:  adb-oraoper-db-auth
+            passwordKey: adb-oraoper-db-auth
           db.adminUser: ADMIN
           db.adminUser.secret:
-            secretName:  adb-oraoper-password
-            passwordKey: adb-oraoper-password" | kubectl apply -f -
+            secretName:  adb-oraoper-db-auth
+            passwordKey: adb-oraoper-db-auth" | kubectl apply -f -
     ```
     <sup>24.1.0 cannot be used due to a image ENV issue</sup>
 
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
-    kubectl get restdataservices ordspoc-server -w
+    kubectl get restdataservices ords-adb-oraoper -w
     ```
 
     **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  If APEX
@@ -157,7 +169,7 @@ kubectl create secret generic adb-oraoper-password \
 Open a port-forward to the ORDS service, for example:
 
 ```bash
-kubectl port-forward service/ordspoc-server 8443:8443
+kubectl port-forward service/ords-adb-oraoper 8443:8443
 ```
 
 Direct your browser to: `https://localhost:8443/ords/adb-oraoper`

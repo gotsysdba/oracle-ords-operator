@@ -801,7 +801,7 @@ func envDefine(ords *databasev1.RestDataServices, initContainer bool) []corev1.E
 	}
 	if initContainer {
 		for i := 0; i < len(ords.Spec.PoolSettings); i++ {
-			poolName := strings.ToLower(ords.Spec.PoolSettings[i].PoolName)
+			poolName := strings.ReplaceAll(strings.ToLower(ords.Spec.PoolSettings[i].PoolName), "-", "_")
 			dbSecret := corev1.EnvVar{
 				Name: poolName + "_dbsecret",
 				ValueFrom: &corev1.EnvVarSource{
@@ -862,7 +862,9 @@ func (r *RestDataServicesReconciler) ConfigMapDelete(ctx context.Context, req ct
 	// Delete Undefined Pool ConfigMaps
 	configMapList := &corev1.ConfigMapList{}
 	if err := r.List(ctx, configMapList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+		client.MatchingLabels(map[string]string{
+			controllerLabelKey:           controllerLabelVal,
+			"app.kubernetes.io/instance": ords.Name}),
 	); err != nil {
 		return err
 	}
@@ -889,21 +891,27 @@ func (r *RestDataServicesReconciler) WorkloadDelete(ctx context.Context, req ctr
 	// Get Workloads
 	deploymentList := &appsv1.DeploymentList{}
 	if err := r.List(ctx, deploymentList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+		client.MatchingLabels(map[string]string{
+			controllerLabelKey:           controllerLabelVal,
+			"app.kubernetes.io/instance": ords.Name}),
 	); err != nil {
 		return err
 	}
 
 	statefulSetList := &appsv1.StatefulSetList{}
 	if err := r.List(ctx, statefulSetList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+		client.MatchingLabels(map[string]string{
+			controllerLabelKey:           controllerLabelVal,
+			"app.kubernetes.io/instance": ords.Name}),
 	); err != nil {
 		return err
 	}
 
 	daemonSetList := &appsv1.DaemonSetList{}
 	if err := r.List(ctx, daemonSetList, client.InNamespace(req.Namespace),
-		client.MatchingLabels(map[string]string{controllerLabelKey: controllerLabelVal}),
+		client.MatchingLabels(map[string]string{
+			controllerLabelKey:           controllerLabelVal,
+			"app.kubernetes.io/instance": ords.Name}),
 	); err != nil {
 		return err
 	}

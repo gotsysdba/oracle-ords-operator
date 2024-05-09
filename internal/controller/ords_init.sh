@@ -239,9 +239,15 @@ ords_upgrade() {
 		local -r ords_admin=$($ords_cfg_cmd get db.adminUser | tail -1)
 
 		echo "Performing ORDS install/upgrade as $ords_admin into $ords_user on pool ${_pool_name}"
-		ords --config "$ORDS_CONFIG" install --db-pool "${_pool_name}" --db-only \
-			--admin-user "$ords_admin" --password-stdin <<< "${config["dbadminusersecret"]}"
-		_rc=$?
+		if [[ ${_pool_name} == "default" ]]; then
+			ords --config "$ORDS_CONFIG" install --db-only \
+				--admin-user "$ords_admin" --password-stdin <<< "${config["dbadminusersecret"]}"
+			_rc=$?
+		else
+			ords --config "$ORDS_CONFIG" install --db-pool "${_pool_name}" --db-only \
+				--admin-user "$ords_admin" --password-stdin <<< "${config["dbadminusersecret"]}"
+			_rc=$?
+		fi
 
 		# Dar be bugs below deck with --db-user so using the above
 		# ords --config "$ORDS_CONFIG" install --db-pool "$1" --db-only \
@@ -290,13 +296,26 @@ apex_upgrade() {
 
 	if [[ -f ${APEX_HOME}/${APEX_VER}/apexins.sql ]] && [[ "${!_upgrade_key}" = "true" ]]; then
 		echo "Starting Installation of APEX ${APEX_VER}"
-		local -r _install_sql="@apexins SYSAUX SYSAUX TEMP /i/
-			@apex_rest_config_core.sql /opt/oracle/apex/$APEX_VER/ ${config["dbsecret"]} ${config["dbsecret"]}"
-
+		local -r _install_sql="@apexins SYSAUX SYSAUX TEMP /i/"
 		run_sql "${_conn_string}" "${_install_sql}" "_install_output"
 		_rc=$?
-
 		echo "Installation Output: ${_install_output}"
+
+		if (( ${_rc} == 0 )); then
+			echo "Configuring Installation of APEX ${APEX_VER}"
+			local -r _config_core="@apex_rest_config_core.sql /opt/oracle/apex/$APEX_VER/ ${config["dbsecret"]} ${config["dbsecret"]}"
+			run_sql "${_conn_string}" "${_config_core}" "_config_output"
+			_rc=$?
+			echo "Configuration Output: ${_config_output}"
+		fi
+
+		if (( ${_rc} == 0 )); then
+			echo "Unlocking APEX_PUBLIC_USER"
+			local -r _unlock_user="ALTER USER APEX_PUBLIC_USER ACCOUNT UNLOCK;"
+			run_sql "${_conn_string}" "${_unlock_user}" "_unlock_output"
+			_rc=$?
+			echo "Unlock Output: ${_unlock_output}"
+		fi
 	fi
 
 	return $_rc
@@ -324,7 +343,6 @@ apex_password() {
 		END;
 		/"
 
-	echo "${_password_sql}"
 	run_sql "${_conn_string}" "${_password_sql}" "_db_apex_version"
 	_rc=$?
 
@@ -334,6 +352,7 @@ apex_password() {
 #------------------------------------------------------------------------------
 # INIT
 #------------------------------------------------------------------------------
+export JAVA_TOOL_OPTIONS="-Doracle.net.disableOob=true"
 declare -A pool_exit
 for pool in "$ORDS_CONFIG"/databases/*; do
 	rc=0
@@ -343,10 +362,10 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 	echo "Found Pool: $pool_name..."
 
 	declare -A config
-	for key in dbsecret dbadminusersecret dbcdbadminusersecret dbwalletzip dbtnsdirectory; do
-			var_key="${pool_name}_${key}"
-			var_val="${!var_key}"
-			config[${key}]="${var_val}"
+	for key in dbsecret dbadminusersecret dbcdbadminusersecret; do
+		var_key="${pool_name//-/_}_${key}"
+		var_val="${!var_key}"
+		config[${key}]="${var_val}"
 	done
 
 	# Set Secrets
@@ -403,7 +422,7 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 			pool_exit[${pool_name}]=1
 			continue
 		fi
-
+		
 		# APEX Upgrade
 		echo "---------------------------------------------------"
 		declare -r apex_upgrade_var=${pool_name}_autoupgrade_apex

@@ -1,4 +1,4 @@
-# Example
+# Example: Autonomous Database without the OraOperator
 
 This example walks through using the **ORDS Operator** with an Oracle Autonomous Database.  
 
@@ -15,33 +15,20 @@ kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/late
 
 ### ADB Wallet Secret
 
-Create a Secret with the wallet for the ADB, replacing `<full_path_to_wallet.zip>` with the path to the wallet zip file:
+Download the ADB Wallet and create a Secret, replacing `<full_path_to_wallet.zip>` with the path to the wallet zip file:
 
 ```bash
 kubectl create secret generic adb-wallet \
   --from-file=<full_path_to_wallet.zip>
 ```
 
-For example:
-
-```bash
-kubectl create secret generic adb-wallet \
-  --from-file=~/Downloads/Wallet_ADBPOC.zip
-```
-
 ### ADB ADMIN Password Secret
 
-Create a Secret for the ADB Admin password, replacing `<admin_password>` with the real ADMIN password:
+Create a Secret for the ADB ADMIN password, replacing <ADMIN_PASSWORD> with the real password:
 
 ```bash
 kubectl create secret generic adb-db-auth \
-  --from-literal=password=<admin_password>
-```
-
-For example:
-```bash
-kubectl create secret generic adb-db-auth \
-  --from-literal=password=horse-battery-staple
+  --from-literal=password=<ADMIN_PASSWORD>
 ```
 
 ### Create RestDataServices Resource
@@ -51,22 +38,24 @@ kubectl create secret generic adb-db-auth \
     As an ADB already maintains ORDS and APEX, `autoUpgradeORDS` and `autoUpgradeAPEX` will be ignored if set.  A new DB User for ORDS will be created to avoid conflict with the pre-provisioned one.  This user will be
     named, `ORDS_PUBLIC_USER_OPER` if `db.username` is either not specified or set to `ORDS_PUBLIC_USER`.
 
+    Replace <ADB_NAME> with the ADB Name and ensure that the `db.wallet.zip.service` is valid for your ADB Workload (e.g. _TP or _HIGH, etc.):
+
     ```bash
     echo "
     apiVersion: database.oracle.com/v1
     kind: RestDataServices
     metadata:
-      name: ordspoc-adb
+      name: ords-adb
     spec:
       image: container-registry.oracle.com/database/ords:23.4.0
       globalSettings:
         database.api.enabled: true
       poolSettings:
         - poolName: adb
-          db.wallet.zip.service: adbpoc_tp
+          db.wallet.zip.service: <ADB_NAME>_TP
           dbWalletSecret:
-            secretName:  adb-wallet
-            walletName: Wallet_ADBPOC.zip
+            secretName: adb-wallet
+            walletName: Wallet_<ADB_NAME>.zip
           restEnabledSql.active: true
           feature.sdw: true
           plsql.gateway.mode: proxied
@@ -83,7 +72,7 @@ kubectl create secret generic adb-db-auth \
 
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
-    kubectl get restdataservices ordspoc-adb -w
+    kubectl get restdataservices ords-adb -w
     ```
 
     **NOTE**: If this is the first time pulling the ORDS image, it may take up to 5 minutes.  If APEX
@@ -95,7 +84,7 @@ kubectl create secret generic adb-db-auth \
 Open a port-forward to the ORDS service, for example:
 
 ```bash
-kubectl port-forward service/ordspoc-adb 8443:8443
+kubectl port-forward service/ords-adb 8443:8443
 ```
 
 Direct your browser to: `https://localhost:8443/ords/adb`

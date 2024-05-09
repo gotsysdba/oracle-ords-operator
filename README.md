@@ -2,7 +2,7 @@
 
 This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
-Your evaluation and [Feedback](issues/new?labels=feedback&title=New+Feedback) is appreciated.
+Your evaluation and [Feedback](/issues/new?labels=feedback&title=New+Feedback) is appreciated.
 
 ## Description
 
@@ -43,7 +43,7 @@ The "Conclusion" section of each example highlights specific settings to enable 
 * [Containerised Single Instance Database using the OraOperator](docs/examples/sidb_container.md)
 * [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) <sup>*See [Limitations](#limitations)</sup>
 * [Autonomous Database without the OraOperator](docs/examples/adb.md)
-* [Multipool, Multidatabase using a TNS Names file](docs/example/multi_pool.md)
+* [Multipool, Multidatabase using a TNS Names file](docs/examples/multi_pool.md)
 
 Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 
