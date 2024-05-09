@@ -2,7 +2,7 @@
 
 This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
-Your evaluation and [Feedback](issues/new?labels=feedback&title=New+Feedback) is appreciated.
+Your evaluation and [Feedback](../../issues/new?labels=feedback&title=New+Feedback) is appreciated.
 
 ## Description
 
@@ -54,7 +54,7 @@ The "Conclusion" section of each example highlights specific settings to enable 
 
 Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 
-If you have a specific use-case that is not covered and would like it to be, please open an [Enhancement Request](issues/new?labels=enhancement) or feel free to contribute it via a Pull Request.
+If you have a specific use-case that is not covered and would like it to be, please open an [Enhancement Request](../../issues/new?labels=enhancement) or feel free to contribute it via a Pull Request.
 
 ### Limitations
 
