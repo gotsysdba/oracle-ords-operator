@@ -296,63 +296,18 @@ apex_upgrade() {
 
 	if [[ -f ${APEX_HOME}/${APEX_VER}/apexins.sql ]] && [[ "${!_upgrade_key}" = "true" ]]; then
 		echo "Starting Installation of APEX ${APEX_VER}"
-		local -r _install_sql="@apexins SYSAUX SYSAUX TEMP /i/"
+		local -r _install_sql="@apxsilentins.sql SYSAUX SYSAUX TEMP /i/ ${config["dbsecret"]} ${config["dbsecret"]} ${config["dbsecret"]} ${config["dbsecret"]}"
 		run_sql "${_conn_string}" "${_install_sql}" "_install_output"
 		_rc=$?
 		echo "Installation Output: ${_install_output}"
-
-		if (( ${_rc} == 0 )); then
-			echo "Configuring Installation of APEX ${APEX_VER}"
-			local -r _config_core="@apex_rest_config_core.sql /opt/oracle/apex/$APEX_VER/ ${config["dbsecret"]} ${config["dbsecret"]}"
-			run_sql "${_conn_string}" "${_config_core}" "_config_output"
-			_rc=$?
-			echo "Configuration Output: ${_config_output}"
-		fi
-
-		if (( ${_rc} == 0 )); then
-			echo "Unlocking APEX_PUBLIC_USER"
-			local -r _unlock_user="ALTER USER APEX_PUBLIC_USER ACCOUNT UNLOCK;"
-			run_sql "${_conn_string}" "${_unlock_user}" "_unlock_output"
-			_rc=$?
-			echo "Unlock Output: ${_unlock_output}"
-		fi
 	fi
 
 	return $_rc
 }
 
-apex_password() {
-	local -r _conn_string="${1}"
-	local -i _rc=0
-
-	sed '/^accept/d' ${APEX_HOME}/${APEX_VER}/apxchpwd.sql > ${APEX_HOME}/${APEX_VER}/apxchpwdnew.sql
-	echo "Setting APEX password"
-	local -r _password_sql="
-		exec APEX_INSTANCE_ADMIN.SET_PARAMETER( 'STRONG_SITE_ADMIN_PASSWORD', 'N' );
-		DEFINE USERNAME=\"ADMIN\"
-		DEFINE EMAIL=\"noreply@oracle.com\"
-		DEFINE PASSWORD=\"${config["dbsecret"]}\"
-		@apxchpwdnew.sql
-		exec APEX_INSTANCE_ADMIN.SET_PARAMETER( 'STRONG_SITE_ADMIN_PASSWORD', 'Y' );
-		DECLARE 
-			l_user_id NUMBER;
-		BEGIN
-			APEX_UTIL.set_workspace(p_workspace => 'INTERNAL');
-			l_user_id := APEX_UTIL.GET_USER_ID('ADMIN');
-			APEX_UTIL.EDIT_USER(p_user_id => l_user_id, p_user_name  => 'ADMIN', p_change_password_on_first_use => 'Y');
-		END;
-		/"
-
-	run_sql "${_conn_string}" "${_password_sql}" "_db_apex_version"
-	_rc=$?
-
-	return ${_rc}
-}
-
 #------------------------------------------------------------------------------
 # INIT
 #------------------------------------------------------------------------------
-export JAVA_TOOL_OPTIONS="-Doracle.net.disableOob=true"
 declare -A pool_exit
 for pool in "$ORDS_CONFIG"/databases/*; do
 	rc=0
@@ -407,25 +362,10 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 		# Create ORDS User
 		echo "Processing ADB in Pool: ${pool_name}"
 		create_adb_user "${conn_string}" "${pool_name}"
-	else
-		# ORDS Upgrade
-		declare -r ords_upgrade_var=${pool_name}_autoupgrade_ords
-		if [[ ${!ords_upgrade_var} != "true" ]]; then
-			echo "ORDS Install/Upgrade not requested for ${pool_name}"
-			continue
-		fi
-
-		ords_upgrade "${pool_name}" "${pool_name}_autoupgrade_ords"
-		rc=$?
-		if (( $rc > 0 )); then
-			echo "FATAL: Unable to preform requested ORDS install/upgrade on ${pool_name}"
-			pool_exit[${pool_name}]=1
-			continue
-		fi
-		
+	else	
 		# APEX Upgrade
 		echo "---------------------------------------------------"
-		declare -r apex_upgrade_var=${pool_name}_autoupgrade_apex
+		apex_upgrade_var=${pool_name}_autoupgrade_apex
 		if [[ ${!apex_upgrade_var} != "true" ]]; then
 			echo "APEX Install/Upgrade not requested for ${pool_name}"
 			continue
@@ -447,13 +387,19 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 			fi			
 		fi
 
-		if [[ ${action} == "install" ]]; then
-			apex_password "${conn_string}"
-			if (( $? > 0 )); then
-				echo "FATAL: Unable to update password for APEX for ${pool_name}"
-				pool_exit[${pool_name}]=1
-				continue
-			fi			
+		# ORDS Upgrade
+		ords_upgrade_var=${pool_name}_autoupgrade_ords
+		if [[ ${!ords_upgrade_var} != "true" ]]; then
+			echo "ORDS Install/Upgrade not requested for ${pool_name}"
+			continue
+		fi
+
+		ords_upgrade "${pool_name}" "${pool_name}_autoupgrade_ords"
+		rc=$?
+		if (( $rc > 0 )); then
+			echo "FATAL: Unable to preform requested ORDS install/upgrade on ${pool_name}"
+			pool_exit[${pool_name}]=1
+			continue
 		fi
 	fi
 done

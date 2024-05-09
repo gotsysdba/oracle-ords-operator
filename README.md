@@ -2,7 +2,7 @@
 
 This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
-Your evaluation and [Feedback](/issues/new?labels=feedback&title=New+Feedback) is appreciated.
+Your evaluation and [Feedback](issues/new?labels=feedback&title=New+Feedback) is appreciated.
 
 ## Description
 
@@ -19,11 +19,18 @@ The custom RestDataServices resource supports the following configurations as ei
 * Multiple RestDataServices resources, each with one database pool
 * Multiple RestDataServices resources, each with multiple database pools<sup>*</sup>
 
-It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md)
+It supports the majority of ORDS configuration settings as per the [API Documentation](docs/api.md).
 
 The ORDS and APEX schemas can be [automatically installed/upgraded](docs/autoupgrade.md) into the Oracle Database by the ORDS Operator.
 
 <sup>*See [Limitations](#limitations)</sup>
+
+ORDS Version support: 
+* v22.1+
+
+Oracle Database Version: 
+* 19c
+* 23ai (incl. 23ai Free)
 
 ### Quick Installation
 
