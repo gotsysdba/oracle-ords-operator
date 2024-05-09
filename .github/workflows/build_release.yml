@@ -35,7 +35,7 @@ jobs:
       - name: Build and Push Manifest
         run: | 
           make release-manifest IMG=${{ github.repository }}:${{ env.VERSION }}
-          gh release upload ${{github.event.release.tag_name}} ${{ env.MANIFEST }}
+          gh release upload ${{github.event.release.tag_name}} ${{ env.MANIFEST }} --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
