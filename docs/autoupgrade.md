@@ -8,7 +8,7 @@ For example, in the below manifest:
 * `Pool: pdb2` will not install or upgrade ORDS/APEX
 
 As an additional requirement for `Pool: pdb1`, the `spec.poolSettings.db.adminUser` and `spec.poolSettings.db.adminUser.secret`
-must be provided.  If the are not, the `autoUpgrade` specification is ignored.
+must be provided.  If they are not, the `autoUpgrade` specification is ignored.
 
 ```yaml
 apiVersion: database.oracle.com/v1
