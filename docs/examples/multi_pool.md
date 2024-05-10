@@ -1,8 +1,8 @@
 # Example: Multipool, Multidatabase using a TNS Names file
 
 This example walks through using the **ORDS Operator** with multiple databases using a TNS Names file.  
-Keep in mind all pools are running in the same pod, changing the configuration of one pool will require
-an outage of all pools for that configuration to be implemented.
+Keep in mind that all pools are running in the same Pod, therefore, changing the configuration of one pool will require
+a recycle of all pools.
 
 ### Install ORDS Operator
 
