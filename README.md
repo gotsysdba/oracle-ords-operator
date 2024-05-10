@@ -1,14 +1,16 @@
 # Oracle Rest Data Services (ORDS) Operator for Kubernetes
 
-This is a **Proof-of-Concept** Oracle Rest Data Services Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
+This is a **Proof-of-Concept** [Oracle Rest Data Services](https://www.oracle.com/uk/database/technologies/appdev/rest.html) Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
 
 Your evaluation and [Feedback](../../issues/new?labels=feedback&title=New+Feedback) is appreciated.
 
 ## Description
 
-The ORDS Operator extends the Kubernetes API with custom resources and controllers for automating Oracle Rest Data
+The ORDS Operator extends the Kubernetes API with a Custom Resource (CR) and Controller for automating Oracle Rest Data
 Services (ORDS) lifecycle management.  Using the ORDS Operator, you can easily migrate existing, or create new, ORDS implementations
-into an existing Kubernetes cluster.
+into an existing Kubernetes cluster.  
+
+This Operator allows you to run what would otherwise be an On-Premises ORDS middle-tier, configured as you require, inside Kubernetes with the additional ability of the controller to perform automatic ORDS/APEX install/upgrades inside the database.
 
 ## Features Summary
 
@@ -48,9 +50,10 @@ A few common configuration examples can be used to quickly familiarise yourself 
 The "Conclusion" section of each example highlights specific settings to enable functionality that maybe of interest.
 
 * [Containerised Single Instance Database using the OraOperator](docs/examples/sidb_container.md)
-* [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) <sup>*See [Limitations](#limitations)</sup>
-* [Autonomous Database without the OraOperator](docs/examples/adb.md)
 * [Multipool, Multidatabase using a TNS Names file](docs/examples/multi_pool.md)
+* [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) - (Customer Managed ORDS) <sup>*See [Limitations](#limitations)</sup>
+* [Autonomous Database without the OraOperator](docs/examples/adb.md) - (Customer Managed ORDS)
+
 
 Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 
