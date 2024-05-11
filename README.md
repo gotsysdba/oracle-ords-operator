@@ -34,6 +34,7 @@ Oracle Database Version:
 * 19c
 * 23ai (incl. 23ai Free)
 
+
 ### Quick Installation
 
 To install the ORDS Operator, run:
@@ -53,7 +54,7 @@ The "Conclusion" section of each example highlights specific settings to enable 
 * [Multipool, Multidatabase using a TNS Names file](docs/examples/multi_pool.md)
 * [Autonomous Database using the OraOperator](docs/examples/adb_oraoper.md) - (Customer Managed ORDS) <sup>*See [Limitations](#limitations)</sup>
 * [Autonomous Database without the OraOperator](docs/examples/adb.md) - (Customer Managed ORDS)
-
+* [Oracle API for MongoDB Support](docs/examples/mongo_api.md)
 
 Running through all examples in the same Kubernetes cluster illustrates the ability to run multiple ORDS instances with a variety of different configurations.
 

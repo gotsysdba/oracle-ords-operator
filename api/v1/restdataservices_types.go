@@ -75,8 +75,19 @@ type RestDataServicesSpec struct {
 }
 
 type GlobalSettings struct {
+	// Specifies the setting to enable or disable metadata caching.
+	CacheMetadataEnabled *bool `json:"cache.metadata.enabled,omitempty"`
+
 	// Specifies the duration after a GraphQL schema is not accessed from the cache that it expires.
 	CacheMetadataGraphQLExpireAfterAccess *time.Duration `json:"cache.metadata.graphql.expireAfterAccess,omitempty"`
+
+	// Specifies the duration after a GraphQL schema is cached that it expires and has to be loaded again.
+	CacheMetadataGraphQLExpireAfterWrite *time.Duration `json:"cache.metadata.graphql.expireAfterWrite,omitempty"`
+
+	// Specifies the setting to determine for how long a metadata record remains in the cache.
+	// Longer duration means, it takes longer to view the applied changes.
+	// The formats accepted are based on the ISO-8601 duration format.
+	CacheMetadataTimeout *time.Duration `json:"cache.metadata.timeout,omitempty"`
 
 	// Specifies the setting to enable or disable JWKS caching.
 	CacheMetadataJWKSEnabled *bool `json:"cache.metadata.jwks.enabled,omitempty"`
@@ -93,6 +104,9 @@ type GlobalSettings struct {
 
 	// Specifies the duration after a JWK is cached, that is, it expires and has to be loaded again.
 	CacheMetadataJWKSExpireAfterWrite *time.Duration `json:"cache.metadata.jwks.expireAfterWrite,omitempty"`
+
+	// Specifies whether the Database API is enabled.
+	DatabaseAPIEnabled *bool `json:"database.api.enabled,omitempty"`
 
 	// Specifies to disable the Database API administration related services.
 	// Only applicable when Database API is enabled.
@@ -130,17 +144,6 @@ type GlobalSettings struct {
 	// Specifies the period for Standalone Mode to wait until it is gracefully shutdown.
 	StandaloneStopTimeout *time.Duration `json:"standalone.stop.timeout,omitempty"`
 
-	// Specifies the setting to determine for how long a metadata record remains in the cache.
-	// Longer duration means, it takes longer to view the applied changes.
-	// The formats accepted are based on the ISO-8601 duration format.
-	CacheMetadataTimeout *time.Duration `json:"cache.metadata.timeout,omitempty"`
-
-	// Specifies the setting to enable or disable metadata caching.
-	CacheMetadataEnabled *bool `json:"cache.metadata.enabled,omitempty"`
-
-	// Specifies whether the Database API is enabled.
-	DatabaseAPIEnabled *bool `json:"database.api.enabled,omitempty"`
-
 	// Specifies whether to display error messages on the browser.
 	DebugPrintDebugToScreen *bool `json:"debug.printDebugToScreen,omitempty"`
 
@@ -164,7 +167,21 @@ type GlobalSettings struct {
 	ICAPServer string `json:"icap.server,omitempty"`
 
 	// Specifies whether procedures are to be logged.
-	LogProcedure *bool `json:"log.procedure,omitempty"`
+	LogProcedure bool `json:"log.procedure,omitempty"`
+
+	// Specifies to enable the API for MongoDB.
+	//+kubebuider:default=false
+	MongoEnabled bool `json:"mongo.enabled,omitempty"`
+
+	// Specifies the API for MongoDB listen port.
+	//+kubebuilder:default:=27017
+	MongoPort *int32 `json:"mongo.port,omitempty"`
+
+	// Specifies the maximum idle time for a Mongo connection in milliseconds.
+	MongoIdleTimeout *time.Duration `json:"mongo.idle.timeout,omitempty"`
+
+	// Specifies the maximum time for a Mongo database operation in milliseconds.
+	MongoOpTimeout *time.Duration `json:"mongo.op.timeout,omitempty"`
 
 	// If this value is set to true, then the Oracle REST Data Services internal exclusion list is not enforced.
 	// Oracle recommends that you do not set this value to true.
@@ -219,6 +236,11 @@ type GlobalSettings struct {
 	//+kubebuilder:default:=false
 	EnableStandaloneAccessLog bool `json:"enable.standalone.access.log,omitempty"`
 
+	// Specifies if HTTP request access logs should be enabled
+	// If enabled, logs will be written to /opt/oracle/sa/log/global
+	//+kubebuilder:default:=false
+	EnableMongoAccessLog bool `json:"enable.mongo.access.log,omitempty"`
+
 	/*
 		//Specifies the SSL certificate path.
 		// If you are providing the SSL certificate, then you must specify the certificate location.
@@ -266,6 +288,16 @@ type GlobalSettings struct {
 	// StandaloneStaticPath string `json:"standalone.static.path,omitempty"`
 	// This is disabled as will use the container image path (/opt/oracle/apex/$ORDS_VER/images)
 	// HARDCODED into the entrypoint
+
+	// Specifies a comma separated list of host names or IP addresses to identify a specific
+	// network interface on which to listen.
+	//+kubebuilder:default:="0.0.0.0"
+	// MongoHost string `json:"mongo.host,omitempty"`
+	// This is disabled as containerised
+
+	// Specifies the path to the folder where you want to store the API for MongoDB access logs.
+	// MongoAccessLog string `json:"mongo.access.log,omitempty"`
+	// HARDCODED to global/logs
 }
 
 type PoolSettings struct {
@@ -435,6 +467,12 @@ type PoolSettings struct {
 	// Specifies the maximum number of times to reuse a connection before it is discarded and replaced with a new connection.
 	JDBCMaxConnectionReuseCount *int32 `json:"jdbc.MaxConnectionReuseCount,omitempty"`
 
+	// Sets the maximum connection reuse time property.
+	JDBCMaxConnectionReuseTime *int32 `json:"jdbc.MaxConnectionReuseTime,omitempty"`
+
+	// Sets the time in seconds to trust an idle connection to skip a validation test.
+	JDBCSecondsToTrustIdleConnection *int32 `json:"jdbc.SecondsToTrustIdleConnection,omitempty"`
+
 	// Specifies the maximum number of connections.
 	// Might be too low for some production environments.
 	JDBCMaxLimit *int32 `json:"jdbc.MaxLimit,omitempty"`
@@ -600,6 +638,8 @@ type RestDataServicesStatus struct {
 	HTTPPort *int32 `json:"httpPort,omitempty"`
 	// Indicates the HTTPS port of the resource exposed by the pods
 	HTTPSPort *int32 `json:"httpsPort,omitempty"`
+	// Indicates the MongoAPI port of the resource exposed by the pods (if enabled)
+	MongoPort int32 `json:"mongoPort,omitempty"`
 	// Indicates if the resource is out-of-sync with the configuration
 	RestartRequired bool `json:"restartRequired"`
 
@@ -614,6 +654,7 @@ type RestDataServicesStatus struct {
 //+kubebuilder:printcolumn:JSONPath=".status.ordsVersion",name="ordsVersion",type="string"
 //+kubebuilder:printcolumn:JSONPath=".status.httpPort",name="httpPort",type="integer"
 //+kubebuilder:printcolumn:JSONPath=".status.httpsPort",name="httpsPort",type="integer"
+//+kubebuilder:printcolumn:JSONPath=".status.mongoPort",name="MongoPort",type="integer"
 //+kubebuilder:printcolumn:JSONPath=".status.restartRequired",name="restartRequired",type="boolean"
 //+kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="AGE",type="date"
 
