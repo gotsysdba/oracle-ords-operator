@@ -13,23 +13,22 @@ In the database, create an ORDS-enabled user.  As this example uses the [Contain
 
 
 1. Connect to the database:
-
-```bash
-DB_PWD=$(kubectl get secrets sidb-db-auth --template='{{.data.password | base64decode}}')
-POD_NAME=$(kubectl get pod -l "app=oraoper-sidb" -o custom-columns=NAME:.metadata.name --no-headers)
-
-kubectl exec -it ${POD_NAME} -- sqlplus SYSTEM/${DB_PWD}@FREEPDB1
-```
-
+    ```bash
+    DB_PWD=$(kubectl get secrets sidb-db-auth --template='{{.data.password | base64decode}}')
+    POD_NAME=$(kubectl get pod -l "app=oraoper-sidb" -o custom-columns=NAME:.metadata.name --no-headers)
+    
+    kubectl exec -it ${POD_NAME} -- sqlplus SYSTEM/${DB_PWD}@FREEPDB1
+    ```
+    
 1. Create the User:
-```sql
-create user MONGO identified by "My_Password1!";
-grant soda_app, create session, create table, create view, create sequence, create procedure, create job, 
-unlimited tablespace to MONGO;
--- Connect as new user
-conn MONGO/My_Password1!;
-exec ords.enable_schema;
-```
+    ```sql
+    create user MONGO identified by "My_Password1!";
+    grant soda_app, create session, create table, create view, create sequence, create procedure, create job, 
+    unlimited tablespace to MONGO;
+    -- Connect as new user
+    conn MONGO/My_Password1!;
+    exec ords.enable_schema;
+    ```
 
 ### Create RestDataServices Resource
 
