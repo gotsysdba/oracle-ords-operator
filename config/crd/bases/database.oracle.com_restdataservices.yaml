@@ -30,6 +30,9 @@ spec:
     - jsonPath: .status.httpsPort
       name: httpsPort
       type: integer
+    - jsonPath: .status.mongoPort
+      name: MongoPort
+      type: integer
     - jsonPath: .status.restartRequired
       name: restartRequired
       type: boolean
@@ -71,6 +74,11 @@ spec:
                   cache.metadata.graphql.expireAfterAccess:
                     description: Specifies the duration after a GraphQL schema is
                       not accessed from the cache that it expires.
+                    format: int64
+                    type: integer
+                  cache.metadata.graphql.expireAfterWrite:
+                    description: Specifies the duration after a GraphQL schema is
+                      cached that it expires and has to be loaded again.
                     format: int64
                     type: integer
                   cache.metadata.jwks.enabled:
@@ -135,6 +143,11 @@ spec:
                     description: Specifies whether to display error messages on the
                       browser.
                     type: boolean
+                  enable.mongo.access.log:
+                    default: false
+                    description: Specifies if HTTP request access logs should be enabled
+                      If enabled, logs will be written to /opt/oracle/sa/log/global
+                    type: boolean
                   enable.standalone.access.log:
                     default: false
                     description: Specifies if HTTP request access logs should be enabled
@@ -173,6 +186,24 @@ spec:
                   log.procedure:
                     description: Specifies whether procedures are to be logged.
                     type: boolean
+                  mongo.enabled:
+                    description: Specifies to enable the API for MongoDB.
+                    type: boolean
+                  mongo.idle.timeout:
+                    description: Specifies the maximum idle time for a Mongo connection
+                      in milliseconds.
+                    format: int64
+                    type: integer
+                  mongo.op.timeout:
+                    description: Specifies the maximum time for a Mongo database operation
+                      in milliseconds.
+                    format: int64
+                    type: integer
+                  mongo.port:
+                    default: 27017
+                    description: Specifies the API for MongoDB listen port.
+                    format: int32
+                    type: integer
                   request.traceHeaderName:
                     description: Specifies the name of the HTTP request header that
                       uniquely identifies the request end to end as it passes through
@@ -459,6 +490,10 @@ spec:
                         connection.
                       format: int32
                       type: integer
+                    jdbc.MaxConnectionReuseTime:
+                      description: Sets the maximum connection reuse time property.
+                      format: int32
+                      type: integer
                     jdbc.MaxLimit:
                       description: Specifies the maximum number of connections. Might
                         be too low for some production environments.
@@ -471,6 +506,11 @@ spec:
                       type: integer
                     jdbc.MinLimit:
                       description: Specifies the minimum number of connections.
+                      format: int32
+                      type: integer
+                    jdbc.SecondsToTrustIdleConnection:
+                      description: Sets the time in seconds to trust an idle connection
+                        to skip a validation test.
                       format: int32
                       type: integer
                     jdbc.auth.admin.role:
@@ -737,6 +777,11 @@ spec:
               httpsPort:
                 description: Indicates the HTTPS port of the resource exposed by the
                   pods
+                format: int32
+                type: integer
+              mongoPort:
+                description: Indicates the MongoAPI port of the resource exposed by
+                  the pods (if enabled)
                 format: int32
                 type: integer
               ordsVersion:

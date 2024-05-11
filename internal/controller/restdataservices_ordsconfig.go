@@ -64,9 +64,13 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 			"init_script.sh": string(scriptData)}
 	} else if configMapName == ords.Name+"-"+globalConfigMapName {
 		// GlobalConfigMap
-		var defAccessLog string
+		var defStandaloneAccessLog string
 		if ords.Spec.GlobalSettings.EnableStandaloneAccessLog {
-			defAccessLog = `  <entry key="standalone.access.log">` + ordsSABase + `/log/global</entry>` + "\n"
+			defStandaloneAccessLog = `  <entry key="standalone.access.log">` + ordsSABase + `/log/global</entry>` + "\n"
+		}
+		var defMongoAccessLog string
+		if ords.Spec.GlobalSettings.EnableMongoAccessLog {
+			defMongoAccessLog = `  <entry key="mongo.access.log">` + ordsSABase + `/log/global</entry>` + "\n"
 		}
 		var defCert string
 		if ords.Spec.GlobalSettings.CertSecret != nil {
@@ -103,6 +107,10 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("icap.secure.port", ords.Spec.GlobalSettings.ICAPSecurePort) +
 				conditionalEntry("icap.server", ords.Spec.GlobalSettings.ICAPServer) +
 				conditionalEntry("log.procedure", ords.Spec.GlobalSettings.LogProcedure) +
+				conditionalEntry("mongo.enabled", ords.Spec.GlobalSettings.MongoEnabled) +
+				conditionalEntry("mongo.port", ords.Spec.GlobalSettings.MongoPort) +
+				conditionalEntry("mongo.idle.timeout", ords.Spec.GlobalSettings.MongoIdleTimeout) +
+				conditionalEntry("mongo.op.timeout", ords.Spec.GlobalSettings.MongoOpTimeout) +
 				conditionalEntry("security.disableDefaultExclusionList", ords.Spec.GlobalSettings.SecurityDisableDefaultExclusionList) +
 				conditionalEntry("security.exclusionList", ords.Spec.GlobalSettings.SecurityExclusionList) +
 				conditionalEntry("security.inclusionList", ords.Spec.GlobalSettings.SecurityInclusionList) +
@@ -113,7 +121,8 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("externalSessionTrustedOrigins", ords.Spec.GlobalSettings.SecuirtyExternalSessionTrustedOrigins) +
 				`  <entry key="standalone.doc.root">` + ordsSABase + `/config/global/doc_root/</entry>` + "\n" +
 				// Dynamic
-				defAccessLog +
+				defStandaloneAccessLog +
+				defMongoAccessLog +
 				defCert +
 				// Disabled (but not forgotten)
 				// conditionalEntry("standalone.binds", ords.Spec.GlobalSettings.StandaloneBinds) +
@@ -182,6 +191,8 @@ func (r *RestDataServicesReconciler) ConfigMapDefine(ctx context.Context, ords *
 				conditionalEntry("jdbc.MaxStatementsLimit", ords.Spec.PoolSettings[poolIndex].JDBCMaxStatementsLimit) +
 				conditionalEntry("jdbc.MinLimit", ords.Spec.PoolSettings[poolIndex].JDBCMinLimit) +
 				conditionalEntry("jdbc.statementTimeout", ords.Spec.PoolSettings[poolIndex].JDBCStatementTimeout) +
+				conditionalEntry("jdbc.MaxConnectionReuseTime", ords.Spec.PoolSettings[poolIndex].JDBCMaxConnectionReuseTime) +
+				conditionalEntry("jdbc.SecondsToTrustIdleConnection", ords.Spec.PoolSettings[poolIndex].JDBCSecondsToTrustIdleConnection) +
 				conditionalEntry("misc.defaultPage", ords.Spec.PoolSettings[poolIndex].MiscDefaultPage) +
 				conditionalEntry("misc.pagination.maxRows", ords.Spec.PoolSettings[poolIndex].MiscPaginationMaxRows) +
 				conditionalEntry("procedure.postProcess", ords.Spec.PoolSettings[poolIndex].ProcedurePostProcess) +

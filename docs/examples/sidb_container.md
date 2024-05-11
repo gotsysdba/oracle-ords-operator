@@ -137,6 +137,14 @@ kubectl apply -f https://github.com/gotsysdba/oracle-ords-operator/releases/late
     is being installed for the first time by the Operator, it may remain in the **Preparing** 
     status for an additional 5 minutes.
 
+    You can watch the APEX/ORDS Installation progress by running:
+
+    ```bash
+    POD_NAME=$(kubectl get pod -l "app.kubernetes.io/instance=ords-sidb" -o custom-columns=NAME:.metadata.name --no-headers)
+
+    kubectl logs ${POD_NAME} -c ords-sidb-init -f
+    ```
+
 ### Test
 
 Open a port-forward to the ORDS service, for example:

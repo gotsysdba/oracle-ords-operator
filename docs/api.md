@@ -186,6 +186,15 @@ Contains settings that are configured across the entire ORDS instance.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>cache.metadata.graphql.expireAfterWrite</b></td>
+        <td>integer</td>
+        <td>
+          Specifies the duration after a GraphQL schema is cached that it expires and has to be loaded again.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>cache.metadata.jwks.enabled</b></td>
         <td>boolean</td>
         <td>
@@ -275,6 +284,15 @@ Contains settings that are configured across the entire ORDS instance.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>enable.mongo.access.log</b></td>
+        <td>boolean</td>
+        <td>
+          Specifies if HTTP request access logs should be enabled If enabled, logs will be written to /opt/oracle/sa/log/global<br/>
+          <br/>
+            <i>Default</i>: false<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>enable.standalone.access.log</b></td>
         <td>boolean</td>
         <td>
@@ -329,6 +347,41 @@ Contains settings that are configured across the entire ORDS instance.
         <td>boolean</td>
         <td>
           Specifies whether procedures are to be logged.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mongo.enabled</b></td>
+        <td>boolean</td>
+        <td>
+          Specifies to enable the API for MongoDB.<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mongo.idle.timeout</b></td>
+        <td>integer</td>
+        <td>
+          Specifies the maximum idle time for a Mongo connection in milliseconds.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mongo.op.timeout</b></td>
+        <td>integer</td>
+        <td>
+          Specifies the maximum time for a Mongo database operation in milliseconds.<br/>
+          <br/>
+            <i>Format</i>: int64<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mongo.port</b></td>
+        <td>integer</td>
+        <td>
+          Specifies the API for MongoDB listen port.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+            <i>Default</i>: 27017<br/>
         </td>
         <td>false</td>
       </tr><tr>
@@ -753,6 +806,15 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         </td>
         <td>false</td>
       </tr><tr>
+        <td><b>jdbc.MaxConnectionReuseTime</b></td>
+        <td>integer</td>
+        <td>
+          Sets the maximum connection reuse time property.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
         <td><b>jdbc.MaxLimit</b></td>
         <td>integer</td>
         <td>
@@ -775,6 +837,15 @@ Specifies the Secret containing the SSL Certificates Replaces: standalone.https.
         <td>integer</td>
         <td>
           Specifies the minimum number of connections.<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>jdbc.SecondsToTrustIdleConnection</b></td>
+        <td>integer</td>
+        <td>
+          Sets the time in seconds to trust an idle connection to skip a validation test.<br/>
           <br/>
             <i>Format</i>: int32<br/>
         </td>
@@ -1193,6 +1264,15 @@ RestDataServicesStatus defines the observed state of RestDataServices
         <td>integer</td>
         <td>
           Indicates the HTTPS port of the resource exposed by the pods<br/>
+          <br/>
+            <i>Format</i>: int32<br/>
+        </td>
+        <td>false</td>
+      </tr><tr>
+        <td><b>mongoPort</b></td>
+        <td>integer</td>
+        <td>
+          Indicates the MongoAPI port of the resource exposed by the pods (if enabled)<br/>
           <br/>
             <i>Format</i>: int32<br/>
         </td>

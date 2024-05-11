@@ -72,8 +72,10 @@ const (
 	ordsSABase           = "/opt/oracle/sa"
 	serviceHTTPPortName  = "svc-http-port"
 	serviceHTTPSPortName = "svc-https-port"
+	serviceMongoPortName = "svc-mongo-port"
 	targetHTTPPortName   = "pod-http-port"
 	targetHTTPSPortName  = "pod-https-port"
+	targetMongoPortName  = "pod-mongo-port"
 	globalConfigMapName  = "settings-global"
 	poolConfigPreName    = "settings-" // Append PoolName
 	controllerLabelKey   = "oracle.com/ords-operator-filter"
@@ -285,12 +287,18 @@ func (r *RestDataServicesReconciler) SetStatus(ctx context.Context, req ctrl.Req
 		workloadStatus = "Progressing"
 	}
 
+	mongoPort := int32(0)
+	if ords.Spec.GlobalSettings.MongoEnabled {
+		mongoPort = *ords.Spec.GlobalSettings.MongoPort
+	}
+
 	meta.SetStatusCondition(&ords.Status.Conditions, statusCondition)
 	ords.Status.Status = workloadStatus
 	ords.Status.WorkloadType = ords.Spec.WorkloadType
 	ords.Status.ORDSVersion = strings.Split(ords.Spec.Image, ":")[1]
 	ords.Status.HTTPPort = ords.Spec.GlobalSettings.StandaloneHTTPPort
 	ords.Status.HTTPSPort = ords.Spec.GlobalSettings.StandaloneHTTPSPort
+	ords.Status.MongoPort = mongoPort
 	ords.Status.RestartRequired = RestartPods
 	if err := r.Status().Update(ctx, ords); err != nil {
 		logr.Error(err, "Failed to update Status")
@@ -488,7 +496,9 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 
 	HTTPport := *ords.Spec.GlobalSettings.StandaloneHTTPPort
 	HTTPSport := *ords.Spec.GlobalSettings.StandaloneHTTPSPort
-	desiredService := r.ServiceDefine(ctx, ords, HTTPport, HTTPSport)
+	MongoPort := *ords.Spec.GlobalSettings.MongoPort
+
+	desiredService := r.ServiceDefine(ctx, ords, HTTPport, HTTPSport, MongoPort)
 
 	definedService := &corev1.Service{}
 	if err = r.Get(ctx, types.NamespacedName{Name: ords.Name, Namespace: ords.Namespace}, definedService); err != nil {
@@ -503,6 +513,15 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 				return err
 			}
 		} else {
+			return err
+		}
+	}
+
+	deisredPortCount := len(desiredService.Spec.Ports)
+	definedPortCount := len(definedService.Spec.Ports)
+
+	if deisredPortCount != definedPortCount {
+		if err := r.Update(ctx, desiredService); err != nil {
 			return err
 		}
 	}
@@ -524,6 +543,15 @@ func (r *RestDataServicesReconciler) ServiceReconcile(ctx context.Context, ords 
 				}
 				logr.Info("Updated HTTPS Service Port: " + existingPort.Name)
 				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service HTTPS Port %s Updated", existingPort.Name)
+			}
+		}
+		if existingPort.Name == serviceMongoPortName {
+			if existingPort.Port != MongoPort {
+				if err := r.Update(ctx, desiredService); err != nil {
+					return err
+				}
+				logr.Info("Updated Mongo Service Port: " + existingPort.Name)
+				r.Recorder.Eventf(ords, corev1.EventTypeNormal, "Update", "Service Mongo Port %s Updated", existingPort.Name)
 			}
 		}
 	}
@@ -555,8 +583,25 @@ func selectorDefine(ords *databasev1.RestDataServices) metav1.LabelSelector {
 func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplateSpec {
 	labels := getLabels(ords.Name)
 	specVolumes, specVolumeMounts := VolumesDefine(ords)
-	HTTPport := *ords.Spec.GlobalSettings.StandaloneHTTPPort
-	HTTPSport := *ords.Spec.GlobalSettings.StandaloneHTTPSPort
+
+	envPorts := []corev1.ContainerPort{
+		{
+			ContainerPort: *ords.Spec.GlobalSettings.StandaloneHTTPPort,
+			Name:          targetHTTPPortName,
+		},
+		{
+			ContainerPort: *ords.Spec.GlobalSettings.StandaloneHTTPSPort,
+			Name:          targetHTTPSPortName,
+		},
+	}
+
+	if ords.Spec.GlobalSettings.MongoEnabled {
+		mongoPort := corev1.ContainerPort{
+			ContainerPort: *ords.Spec.GlobalSettings.MongoPort,
+			Name:          targetMongoPortName,
+		}
+		envPorts = append(envPorts, mongoPort)
+	}
 
 	// Environment From Source
 	podSpecTemplate :=
@@ -587,22 +632,14 @@ func podTemplateSpecDefine(ords *databasev1.RestDataServices) corev1.PodTemplate
 					Name:            ords.Name,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					SecurityContext: securityContextDefine(),
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: HTTPport,
-							Name:          targetHTTPPortName,
-						},
-						{
-							ContainerPort: HTTPSport,
-							Name:          targetHTTPSPortName,
-						},
-					},
+					Ports:           envPorts,
 					//Command: []string{"sh", "-c", "tail -f /dev/null"},
 					Command:      []string{"/bin/bash", "-c", "ords --config $ORDS_CONFIG serve --apex-images /opt/oracle/apex/$APEX_VER/images --debug"},
 					Env:          envDefine(ords, false),
 					VolumeMounts: specVolumeMounts,
 				}}},
 		}
+
 	return podSpecTemplate
 }
 
@@ -738,28 +775,40 @@ func volumeBuild(name string, source string, mode ...int32) corev1.Volume {
 }
 
 // Service
-func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *databasev1.RestDataServices, HTTPport int32, HTTPSport int32) *corev1.Service {
+func (r *RestDataServicesReconciler) ServiceDefine(ctx context.Context, ords *databasev1.RestDataServices, HTTPport int32, HTTPSport int32, MongoPort int32) *corev1.Service {
 	labels := getLabels(ords.Name)
+
+	servicePorts := []corev1.ServicePort{
+		{
+			Name:       serviceHTTPPortName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       HTTPport,
+			TargetPort: intstr.FromString(targetHTTPPortName),
+		},
+		{
+			Name:       serviceHTTPSPortName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       HTTPSport,
+			TargetPort: intstr.FromString(targetHTTPSPortName),
+		},
+	}
+
+	if ords.Spec.GlobalSettings.MongoEnabled {
+		mongoServicePort := corev1.ServicePort{
+			Name:       serviceMongoPortName,
+			Protocol:   corev1.ProtocolTCP,
+			Port:       MongoPort,
+			TargetPort: intstr.FromString(targetMongoPortName),
+		}
+		servicePorts = append(servicePorts, mongoServicePort)
+	}
 
 	objectMeta := objectMetaDefine(ords, ords.Name)
 	def := &corev1.Service{
 		ObjectMeta: objectMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
-			Ports: []corev1.ServicePort{
-				{
-					Name:       serviceHTTPPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       HTTPport,
-					TargetPort: intstr.FromString(targetHTTPPortName),
-				},
-				{
-					Name:       serviceHTTPSPortName,
-					Protocol:   corev1.ProtocolTCP,
-					Port:       HTTPSport,
-					TargetPort: intstr.FromString(targetHTTPSPortName),
-				},
-			},
+			Ports:    servicePorts,
 		},
 	}
 
@@ -788,6 +837,10 @@ func envDefine(ords *databasev1.RestDataServices, initContainer bool) []corev1.E
 		{
 			Name:  "ORDS_CONFIG",
 			Value: ordsSABase + "/config",
+		},
+		{
+			Name:  "JAVA_TOOL_OPTIONS",
+			Value: "-Doracle.ml.version_check=false",
 		},
 	}
 	// Limitation case for ADB/mTLS/OraOper edge
