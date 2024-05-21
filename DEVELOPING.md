@@ -97,15 +97,17 @@ This example was tested on MacOS(Intel) using a Kind cluster and `podman`.
     kubectl cluster-info --context kind-ords-operator
     ```
 
-
 ### Workflow
 
+After developing, perform the following build steps:
+
 ```bash
-make generate
-make manifests
+make generate manifests gen-doco
 make docker-build
 make kind-load
 ```
+
+Deploy the updated code:
 
 ```bash
 make undeploy

@@ -94,10 +94,20 @@ function check_adb() {
 	local -n _is_adb=$2
 
 	local -r _adb_chk_sql="
-		SELECT COUNT(*) FROM (
+		DECLARE
+			invalid_column exception;
+			pragma exception_init (invalid_column,-00904);
+			adb_check integer;
+		BEGIN
+			EXECUTE IMMEDIATE q'[SELECT COUNT(*) FROM (
 			SELECT JSON_VALUE(cloud_identity, '\$.DATABASE_OCID') AS database_ocid 
-			FROM v\$pdbs) t
-		WHERE t.database_ocid like '%AUTONOMOUS%';"
+			  FROM v\$pdbs) t
+			 WHERE t.database_ocid like '%AUTONOMOUS%']' INTO adb_check;
+			DBMS_OUTPUT.PUT_LINE(adb_check);
+		EXCEPTION WHEN invalid_column THEN
+			DBMS_OUTPUT.PUT_LINE('0');
+		END;
+		/"
 	echo "Checking if Database is an ADB"
 	run_sql "${_conn_string}" "${_adb_chk_sql}" "_adb_check"
 	_rc=$?
@@ -319,16 +329,17 @@ for pool in "$ORDS_CONFIG"/databases/*; do
 	declare -A config
 	for key in dbsecret dbadminusersecret dbcdbadminusersecret; do
 		var_key="${pool_name//-/_}_${key}"
+		echo "Obtaining value from initContainer variable: ${var_key}"
 		var_val="${!var_key}"
 		config[${key}]="${var_val}"
 	done
 
 	# Set Secrets
-	set_secret "${pool_name}" "db.password" "${config["dbsecret"]}"  "true"
+	set_secret "${pool_name}" "db.password" "${config["dbsecret"]}"
 	rc=$((rc + $?))
-	set_secret "${pool_name}" "db.adminUser.password" "${config["dbadminusersecret"]}" "true"
+	set_secret "${pool_name}" "db.adminUser.password" "${config["dbadminusersecret"]}"
 	rc=$((rc + $?))
-	set_secret "${pool_name}" "db.cdb.adminUser.password" "${config["dbcdbadminusersecret"]}" "true"
+	set_secret "${pool_name}" "db.cdb.adminUser.password" "${config["dbcdbadminusersecret"]}"
 	rc=$((rc + $?))
 
 	if (( ${rc} > 0 )); then
