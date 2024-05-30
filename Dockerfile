@@ -1,7 +1,9 @@
 # Build the manager binary
 FROM container-registry.oracle.com/os/oraclelinux:9-slim AS builder
+# Match what is in go.mod (restricted to latest base image version)
+ARG GO_VERSION=1.21.9
 RUN \
-    microdnf install golang; \
+    microdnf install go-toolset-${GO_VERSION}; \
     microdnf update
 ARG TARGETOS
 ARG TARGETARCH

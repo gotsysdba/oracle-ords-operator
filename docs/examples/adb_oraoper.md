@@ -14,7 +14,7 @@ Install [cert-manager](https://cert-manager.io/) with the following command:
 ```bash
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml
 ```
-<sup>latest cert-manager version, **v1.14.5**, valid as of **2-May-2024**</sup>
+<sup>latest cert-manager version, **v1.14.5**, valid as of **30-May-2024**</sup>
 
 Check that all pods have a STATUS of **Running** before proceeding to the next step:
 ```bash
@@ -130,7 +130,7 @@ kubectl create secret generic adb-oraoper-db-auth \
     metadata:
       name: ords-adb-oraoper
     spec:
-      image: container-registry.oracle.com/database/ords:23.4.0
+      image: container-registry.oracle.com/database/ords:24.1.1
       forceRestart: true
       globalSettings:
         database.api.enabled: true
@@ -152,7 +152,7 @@ kubectl create secret generic adb-oraoper-db-auth \
             secretName:  adb-oraoper-db-auth
             passwordKey: adb-oraoper-db-auth" | kubectl apply -f -
     ```
-    <sup>24.1.0 cannot be used due to a image ENV issue</sup>
+    <sup>latest container-registry.oracle.com/database/ords version, **24.1.1**, valid as of **30-May-2024**</sup>
 
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
