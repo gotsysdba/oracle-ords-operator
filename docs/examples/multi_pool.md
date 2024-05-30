@@ -85,7 +85,7 @@ kubectl create secret generic pdb1-priv-auth \
     metadata:
       name: ords-multi-pool
     spec:
-      image: container-registry.oracle.com/database/ords:23.4.0
+      image: container-registry.oracle.com/database/ords:24.1.1
       forceRestart: true
       globalSettings:
         database.api.enabled: true
@@ -140,8 +140,8 @@ kubectl create secret generic pdb1-priv-auth \
           db.secret:
             secretName: multi-ords-auth" | kubectl apply -f -
     ```
-    <sup>24.1.0 cannot be used due to a image ENV issue</sup>
-
+    <sup>latest container-registry.oracle.com/database/ords version, **24.1.1**, valid as of **30-May-2024**</sup>
+    
 1. Watch the restdataservices resource until the status is **Healthy**:
     ```bash
     kubectl get restdataservices ords-multi-pool -w
