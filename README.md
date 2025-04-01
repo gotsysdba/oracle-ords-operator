@@ -1,8 +1,8 @@
 # Oracle Rest Data Services (ORDS) Operator for Kubernetes
 
-This is a **Proof-of-Concept** [Oracle Rest Data Services](https://www.oracle.com/uk/database/technologies/appdev/rest.html) Operator (ORDS Operator) and is *currently* **not supported** by Oracle.
+**UPDATE**: This ORDS Operator has been included in the official 1.2.0 release of the **supported** [Oracle Operator for Kubernetes](https://github.com/oracle/oracle-database-operator/tree/main/docs/ordsservices).  
 
-Your evaluation and [Feedback](../../issues/new?labels=feedback&title=New+Feedback) is appreciated.
+The **Proof-of-Concept** [Oracle Rest Data Services](https://www.oracle.com/uk/database/technologies/appdev/rest.html) Operator (ORDS Operator) in this repository will no longer be maintained.
 
 ## Description
 
